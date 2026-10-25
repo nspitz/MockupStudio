@@ -32,7 +32,44 @@
     </section>
 
     <section class="card">
-      <h2><span class="num">2</span> Place</h2>
+      <h2><span class="num">2</span> Gemini prompt</h2>
+      <div class="seg" id="typeSeg">
+        <button data-type="main">Main flat-lay</button>
+        <button data-type="stand">Stand</button>
+        <button data-type="phone">Phone</button>
+      </div>
+      <label class="row">
+        <span class="label">Surface</span>
+        <select id="surface"></select>
+      </label>
+      <input type="text" id="surfaceOther" class="text" placeholder="Describe the surface, e.g. a pale pink satin cloth" hidden>
+      <div id="propGroups" class="prop-groups"></div>
+      <div class="row">
+        <input type="text" id="newProp" class="text grow" placeholder="Add a prop to the list, e.g. gold cutlery">
+        <button id="addProp" type="button">+ Add</button>
+      </div>
+      <label class="row">
+        <span class="label">Other props</span>
+        <input type="text" id="otherProps" class="text grow" placeholder="Just for this prompt">
+      </label>
+      <div class="row">
+        <span class="label">Prop colours</span>
+        <div id="colourChips" class="chips"></div>
+      </div>
+      <div class="row">
+        <span class="label">Key colour</span>
+        <span id="keyNote" class="key-note"></span>
+      </div>
+      <textarea id="promptText" class="text prompt" rows="8" aria-label="Gemini prompt"></textarea>
+      <p class="note">You can edit the prompt here, but changing a setting above rewrites it.</p>
+      <div class="row buttons">
+        <button id="copyPrompt" class="primary" type="button">Copy Gemini prompt</button>
+      </div>
+      <p class="note">In Gemini, paste the prompt and attach your reference image if you have one. <strong>Never attach the design.</strong> Save the result and open it under <em>Scene</em> above.</p>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">3</span> Place</h2>
       <div class="stage empty" id="stage">
         <canvas id="stageCanvas"></canvas>
         <svg id="overlay" preserveAspectRatio="none"></svg>
@@ -56,7 +93,7 @@
     </section>
 
     <section class="card">
-      <h2><span class="num">3</span> Finish</h2>
+      <h2><span class="num">4</span> Finish</h2>
       <label class="slider">
         <span>Lighting <output id="lightingOut">80%</output></span>
         <input type="range" id="lighting" min="0" max="100" value="80">

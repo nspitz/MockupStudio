@@ -117,7 +117,7 @@ main { max-width: 760px; margin: 0 auto; padding: 8px 16px 48px; }
 .stage canvas#stageCanvas { display: block; width: 100%; height: auto; }
 .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .stage.empty { min-height: 180px; display: flex; align-items: center; justify-content: center; }
-.stage.empty canvas, .stage.empty svg { display: none; }
+.stage.empty #stageCanvas, .stage.empty svg { display: none; }
 .placeholder { display: none; color: var(--muted); line-height: 1.4; margin: 0; }
 .stage.empty .placeholder { display: block; }
 
@@ -171,6 +171,35 @@ button.ghost { border-color: transparent; background: transparent; color: var(--
 .seg button { border: 0; border-radius: 0; min-height: 38px; }
 .seg button + button { border-left: 1px solid var(--line); }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+
+.text {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 9px 12px;
+  min-height: 42px;
+  min-width: 0;
+}
+.text.grow { flex: 1 1 180px; }
+#surfaceOther { width: 100%; margin-top: 10px; }
+.text.prompt { width: 100%; margin-top: 14px; resize: vertical; font-size: 0.9rem; line-height: 1.45; }
+
+.prop-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 14px; }
+.prop-groups fieldset { border: 1px solid var(--line); border-radius: 10px; margin: 0; padding: 6px 10px 8px; min-width: 0; }
+.prop-groups legend { color: var(--muted); font-size: 0.8rem; padding: 0 4px; }
+.prop { display: flex; align-items: center; gap: 8px; min-height: 34px; cursor: pointer; font-size: 0.92rem; line-height: 1.25; }
+.prop input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+.prop span { flex: 1; }
+.prop .remove { min-height: 28px; padding: 0 8px; border-color: transparent; color: var(--muted); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 10px; border-radius: 999px; font-size: 0.85rem; }
+.chip[aria-pressed="false"] { opacity: 0.45; text-decoration: line-through; }
+.swatch { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.2); }
+.key-note { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.key-note::before { content: ""; width: 14px; height: 14px; border-radius: 3px; background: var(--key, #00ff00); }
 
 .slider { display: block; margin-top: 12px; }
 .slider span { display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--muted); }

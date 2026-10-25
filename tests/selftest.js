@@ -7,6 +7,8 @@ import { findCorners } from '../js/corners.js';
 import { designLevels, renderComposite, flattenCard } from '../js/compose.js';
 import { cropFor, outputSize } from '../js/export.js';
 import { pixels } from '../js/files.js';
+import { NAMED, extractColours, chooseKey } from '../js/palette.js';
+import { buildPrompt, joinList } from '../js/prompt.js';
 
 const results = [];
 const check = (name, ok, detail = '') => results.push({ name, ok, detail });
@@ -132,6 +134,44 @@ for (const [name, hex] of [['green', '#00ff00'], ['magenta', '#ff00ff']]) {
   const c = cropFor(W, Hh, '1:1', truth);
   const inside = truth.every(([x, y]) => x >= c.x && x <= c.x + c.w && y >= c.y && y <= c.y + c.h);
   check('crop that fits keeps the whole card', inside, JSON.stringify(c));
+}
+
+// 7. Palette: names known colours, biggest first, and picks the key furthest from them.
+function blocks(parts) {
+  const c = canvas(200, 200), x = c.getContext('2d');
+  let y = 0;
+  for (const [rgb, share] of parts) {
+    x.fillStyle = `rgb(${rgb.join(',')})`;
+    x.fillRect(0, y, 200, 200 * share + 1);
+    y += 200 * share;
+  }
+  return c;
+}
+const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
+{
+  const red = extractColours(blocks([[rgbOf('cream'), 0.6], [rgbOf('deep red'), 0.3], [rgbOf('gold'), 0.1]]));
+  const names = red.map((c) => c.name).join(', ');
+  check('palette names cream, deep red, gold in order', names === 'cream, deep red, gold', names);
+  check('red design gets green key', chooseKey(red) === 'green', chooseKey(red));
+  const green = extractColours(blocks([[rgbOf('white'), 0.5], [rgbOf('emerald green'), 0.5]]));
+  check('green design gets magenta key', chooseKey(green) === 'magenta', green.map((c) => c.name).join(', '));
+  const plain = extractColours(blocks([[rgbOf('white'), 0.7], [rgbOf('black'), 0.3]]));
+  check('black and white design gets green key', chooseKey(plain) === 'green');
+}
+
+// 8. Prompts carry the type, surface, props, colours and the fixed key-colour rules.
+{
+  const base = { surface: 'a white linen tablecloth', props: ['a loose silk ribbon', 'silver tinsel'], colours: ['deep red', 'cream'], key: 'green' };
+  const main = buildPrompt({ ...base, type: 'main' });
+  check('main prompt', main.includes('flat-lay') && main.includes('portrait 3:4') && main.includes('on a white linen tablecloth')
+    && main.includes('Around it: a loose silk ribbon and silver tinsel.') && main.includes('palette of deep red and cream')
+    && main.includes('(#00FF00)') && main.includes('front surface of the card') && main.includes('No text'), main);
+  const stand = buildPrompt({ ...base, type: 'stand', key: 'magenta' });
+  check('stand prompt', stand.includes('acrylic stand') && stand.includes('(#FF00FF)') && stand.includes('magenta'), stand);
+  const phone = buildPrompt({ ...base, type: 'phone', props: [] });
+  check('phone prompt', phone.includes('smartphone') && phone.includes('ENTIRE phone screen') && phone.includes('overlaps the screen')
+    && phone.includes('no other props') && !phone.includes('palette'), phone);
+  check('list joining', joinList(['a']) === 'a' && joinList(['a', 'b', 'c']) === 'a, b and c');
 }
 
 const pass = results.every((r) => r.ok);

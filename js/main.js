@@ -8,6 +8,7 @@ import { rotateCorners, quadSize } from './geometry.js';
 import { designLevels, renderComposite, flattenCard } from './compose.js';
 import { cropFor, outputSize, toJpegBlob, downloadBlob, canShareFiles, shareBlob } from './export.js';
 import { createHandles } from './handles.js';
+import { createPromptPanel } from './promptPanel.js';
 
 const PREVIEW_LONG = 1400;
 const DETECT_LONG = 1000;
@@ -34,6 +35,8 @@ const handles = createHandles({
   onCommit: (c) => { state.corners = c; orientationHint(); schedule(); },
   onPick: pickKey,
 });
+
+const promptPanel = createPromptPanel();
 
 function setStatus(text, kind = 'info') {
   const s = $('status');
@@ -106,10 +109,11 @@ $('designInput').addEventListener('change', async (e) => {
     state.levels = designLevels(d.canvas);
     const { width: w, height: h } = d.canvas;
     $('designName').textContent = `${f.name} · ${w}×${h}`;
+    promptPanel.setDesign(d.canvas);
     if (Math.min(w, h) < 1500) {
       setStatus(`The design is only ${w}×${h}. Use the original Canva export (PNG, 1500×2100 or more), not a WhatsApp copy.`, 'warn');
     } else if (!state.scene) {
-      setStatus('Design loaded. Now choose the scene from Gemini.', 'ok');
+      setStatus('Design loaded. Copy the Gemini prompt, make the scene in Gemini, then open it under Scene.', 'ok');
     }
     orientationHint();
     schedule();

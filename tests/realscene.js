@@ -6,6 +6,7 @@ import { findCorners } from '../js/corners.js';
 import { fitLongSide, scaledCanvas, pixels } from '../js/files.js';
 import { designLevels, renderComposite, flattenCard } from '../js/compose.js';
 import { cropFor, outputSize } from '../js/export.js';
+import { extractColours, chooseKey } from '../js/palette.js';
 
 // Everything runs synchronously inside the load event, so headless Chrome's --dump-dom sees the result.
 function load(id) {
@@ -26,6 +27,8 @@ function run() {
 const scene = load('sceneImg');
 const design = load('designImg');
 log(`scene ${scene.width}x${scene.height}, design ${design.width}x${design.height}`);
+const palette = extractColours(design);
+log(`palette ${palette.map((c) => `${c.name} ${c.hex} ${Math.round(c.share * 100)}%`).join(', ')}; key ${chooseKey(palette)}`);
 
 const { w, h } = fitLongSide(scene.width, scene.height, Math.min(1000, Math.max(scene.width, scene.height)));
 const img = pixels(w === scene.width ? scene : scaledCanvas(scene, w, h));

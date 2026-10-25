@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-25 — Step 2: Gemini prompt panel
+
+- New section 2: mockup type (Main flat-lay / Stand / Phone), surface (4 presets + Other), prop checkboxes in 4 groups, "+ Add" for your own props, one-off "Other props", and an editable prompt with Copy.
+- Reads the design's main colours from real pixels (no AI, R1) and names them for the props palette; picks green or magenta, whichever is furthest from them. Real red-lace design → white, deep red, rose → green.
+- Remembers ticked props, surface and other props per mockup type, plus your own props — on that device only.
+- The key-colour blank, "nothing covers the card/screen" and no-text rules are fixed text added in code.
+- Tests: 21 self-checks passing (8 new: colour naming, key choice, all 3 prompt types). Phone layout: props in two columns; empty-stage placeholder fixed.
+
 ## 2026-10-25 — Step 1: compositing engine
 
 - Single-page tool, phone-first: open a design and a green/magenta-card scene, auto-detect the key colour and the card's 4 corners, drag-to-fix corners with a magnifier, eyedropper key pick, rotate design in 90° steps.
