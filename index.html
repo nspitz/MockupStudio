@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mockup Studio</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <header class="top">
+    <h1>Mockup Studio</h1>
+    <button id="aboutBtn" class="ghost">Rules</button>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2><span class="num">1</span> Files</h2>
+      <div class="pickers">
+        <label class="picker">
+          <input type="file" id="designInput" accept="image/*">
+          <span class="pick-title">Design (front)</span>
+          <span class="pick-name" id="designName">Tap to choose</span>
+        </label>
+        <label class="picker">
+          <input type="file" id="sceneInput" accept="image/*">
+          <span class="pick-title">Scene with a green card</span>
+          <span class="pick-name" id="sceneName">Tap to choose</span>
+        </label>
+      </div>
+      <p class="note">Your files stay on this device. Nothing is uploaded.</p>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">2</span> Place</h2>
+      <div class="stage empty" id="stage">
+        <canvas id="stageCanvas"></canvas>
+        <svg id="overlay" preserveAspectRatio="none"></svg>
+        <canvas id="magnifier" width="150" height="150" hidden></canvas>
+        <p class="placeholder">Choose a scene to start.</p>
+      </div>
+      <p class="status" id="status" role="status"></p>
+      <p class="status" id="hint" data-kind="warn" hidden></p>
+      <div class="row">
+        <span class="label">Key colour</span>
+        <div class="seg" id="keySeg">
+          <button data-key="green">Green</button>
+          <button data-key="magenta">Magenta</button>
+          <button data-key="pick">Pick</button>
+        </div>
+      </div>
+      <div class="row buttons">
+        <button id="rotateBtn">Rotate design 90°</button>
+        <button id="redetectBtn">Re-detect corners</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="num">3</span> Finish</h2>
+      <label class="slider">
+        <span>Lighting <output id="lightingOut">80%</output></span>
+        <input type="range" id="lighting" min="0" max="100" value="80">
+      </label>
+      <label class="slider">
+        <span>Paper texture <output id="textureOut">12%</output></span>
+        <input type="range" id="texture" min="0" max="30" value="12">
+      </label>
+      <label class="row">
+        <span class="label">Export crop</span>
+        <select id="aspect">
+          <option value="original">Original (no crop)</option>
+          <option value="3:4">3:4 portrait</option>
+          <option value="4:5">4:5 portrait</option>
+          <option value="1:1">1:1 square</option>
+          <option value="4:3">4:3 landscape</option>
+        </select>
+      </label>
+      <p class="status" id="cropError" data-kind="error" hidden></p>
+      <div class="row buttons">
+        <button id="compareBtn">Compare with original</button>
+      </div>
+      <div class="row buttons">
+        <button id="downloadBtn" class="primary">Download JPG</button>
+        <button id="shareBtn" hidden>Save / Share</button>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="aboutDlg" class="dlg">
+    <div class="dlg-head">
+      <h2>Design Fidelity Rules</h2>
+      <button class="ghost" data-close>Close</button>
+    </div>
+    <p class="note">The AI only ever draws the scene, with the card as a flat green blank. This page puts your original file onto that blank, so the design can't be changed.</p>
+    <ul id="rulesList" class="rules"></ul>
+  </dialog>
+
+  <dialog id="compareDlg" class="dlg wide">
+    <div class="dlg-head">
+      <h2>Compare</h2>
+      <button id="zoomBtn" class="ghost">100%</button>
+      <button class="ghost" data-close>Close</button>
+    </div>
+    <p class="note">The text should match exactly. A thumb or prop may cover part of the card.</p>
+    <div id="compareBody" class="compare fit"></div>
+  </dialog>
+</body>
+</html>

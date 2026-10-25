@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SELFTEST RUNNING</title>
+  <script>
+    addEventListener('error', (e) => {
+      document.title = 'SELFTEST ERROR';
+      document.addEventListener('DOMContentLoaded', () => {}, { once: true });
+      (document.getElementById('out') || document.body).textContent += `ERROR ${e.message} @ ${e.filename}:${e.lineno}\n`;
+    });
+  </script>
+  <script type="module" src="selftest.js"></script>
+</head>
+<body>
+  <pre id="out"></pre>
+</body>
+</html>
