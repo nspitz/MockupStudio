@@ -167,7 +167,8 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
   const base = { surface: 'a white linen tablecloth', props: ['a loose silk ribbon', 'silver tinsel'], colours: ['deep red', 'cream'], key: 'green' };
   const main = buildPrompt({ ...base, type: 'main' });
   check('main prompt', main.includes('flat-lay') && main.includes('portrait 3:4') && main.includes('on a white linen tablecloth')
-    && main.includes('Around it: a loose silk ribbon and silver tinsel.') && main.includes('palette of deep red and cream')
+    && main.includes('only an edge or a corner of each shows: a loose silk ribbon and silver tinsel.') && main.includes('open surface around the card')
+    && main.includes('not washed out') && main.includes('palette of deep red and cream')
     && main.includes('(#00FF00)') && main.includes('front surface of the card') && main.includes('No text'), main);
   const stand = buildPrompt({ ...base, type: 'stand', key: 'magenta' });
   check('stand prompt', stand.includes('acrylic stand') && stand.includes('(#FF00FF)') && stand.includes('magenta'), stand);
@@ -182,7 +183,7 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
   const pile = buildPrompt({ ...base, type: 'pile', key: 'magenta' });
   check('pile prompt: two keys, corners, no same-colour touching', pile.includes('Four blank') && pile.includes('all four corners of every card')
     && pile.includes('(#00FF00)') && pile.includes('(#FF00FF)') && pile.includes('no two cards of the same colour touch')
-    && pile.includes('Around them:') && pile.includes('No other bright green or magenta'), pile);
+    && pile.includes('open surface around the cards') && pile.includes('No other bright green or magenta'), pile);
   const hand = buildPrompt({ ...base, type: 'hand', backdrop: '' });
   check('hand prompt: front green, back magenta, wall fallback, no props', hand.includes('front card is one flat, solid pure chroma-key green')
     && hand.includes('back card is one flat, solid pure chroma-key magenta') && hand.includes('a plain warm off-white wall')

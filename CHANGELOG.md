@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-26 — Prompt restyle, batch pages
+
+- Prompts: props now sit at the edges and corners of the frame, partly cropped so mostly only an edge or a corner shows, with open surface around the card. Every shot asks for rich, warm, true-to-life colour that's not washed out or pastel (it was "soft daylight").
+- New `tests/batch.html` composites a manifest of real scenes headless (single, two-key, and phone with the whole design fitted inside the screen), and refuses a scene with the wrong card count. New `tests/prompts.html` builds the five prompts for each props pack with `buildPrompt`. Both read from the git-ignored `tests/local/batch/`.
+- Tests: self-checks updated for the new wording; SELFTEST PASS.
+
 ## 2026-10-26 — Saved designs
 
 - New in section 1: **Saved designs** and **Import library**. A library file holds each design's front, back and props pack; it's imported once per device into IndexedDB (falling back to memory for the session if the browser won't store it or stalls for 3s). Picking a design loads all three, and re-detects when a scene is already open, so you can go through designs over the same scene. Re-importing replaces designs by slug.

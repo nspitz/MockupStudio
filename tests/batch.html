@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>BATCH RUNNING</title>
+  <style>body { margin: 0; } pre { font: 14px monospace; }</style>
+  <script type="module" src="batch.js"></script>
+</head>
+<body>
+  <!-- Composites every job in tests/local/batch/manifest.json (git-ignored, never published).
+       Results land in #result as JSON with each export as a JPEG data URL, for --dump-dom. -->
+  <pre id="out"></pre>
+  <pre id="result" hidden></pre>
+</body>
+</html>

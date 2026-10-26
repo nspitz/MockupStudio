@@ -3,26 +3,29 @@
 
 import { KEYS } from './keying.js';
 
+// Rich enough to set the theme's mood, without pulling the eye off the card.
+const MOOD = 'Rich, warm, true-to-life colour that sets the mood of the theme, not washed out, faded or pastel; gentle realistic shadows.';
+
 // keys: 1 = one blank in the auto-chosen key; 2 = fronts green, backs magenta (pile, hand).
 // backdrop: what the "Background" field fills in, and its default.
 export const TYPES = {
   pile: {
     label: 'Pile',
     keys: 2,
-    template: 'Overhead flat-lay product photo, portrait 3:4. Four blank 5x7 inch invitation cards are casually scattered and fanned out on {SURFACE}, at slightly different angles, overlapping only at their edges so all four corners of every card stay visible. {PROPS} Soft natural daylight, gentle realistic shadows.',
+    template: `Overhead flat-lay product photo, portrait 3:4. Four blank 5x7 inch invitation cards are casually scattered and fanned out on {SURFACE}, at slightly different angles, overlapping only at their edges so all four corners of every card stay visible. {PROPS} Natural daylight. ${MOOD}`,
     blank: 'Two of the cards are one flat, solid {GREEN} and two are one flat, solid {MAGENTA}, alternating so that no two cards of the same colour touch or overlap. Every card is that one colour edge to edge, with no text, pattern, border or texture on it.',
     rules: 'Nothing covers or overlaps the cards except other cards.',
   },
   main: {
     label: 'Main',
     keys: 1,
-    template: 'Overhead, straight-down flat-lay product photo, portrait 3:4. One blank 5x7 inch invitation card lies flat, centred, square to the frame and fully visible on {SURFACE}. {PROPS} Soft natural daylight, gentle realistic shadows.',
+    template: `Overhead, straight-down flat-lay product photo, portrait 3:4. One blank 5x7 inch invitation card lies flat, centred, square to the frame and fully visible on {SURFACE}. {PROPS} Natural daylight. ${MOOD}`,
   },
   hand: {
     label: 'Hand',
     keys: 2,
     backdrop: { label: 'Wall', fallback: 'a plain warm off-white wall' },
-    template: 'Product photo, portrait 3:4, of one hand holding two blank 5x7 inch invitation cards upright in front of {BACKDROP}. The back card is fanned out behind the front card, rotated slightly and offset up and to the side, so at least three of its corners are visible. The hand holds both cards from the lower edge, with only the thumb resting on the bottom margin of the front card. Soft natural window light, the wall slightly out of focus.',
+    template: `Product photo, portrait 3:4, of one hand holding two blank 5x7 inch invitation cards upright in front of {BACKDROP}. The back card is fanned out behind the front card, rotated slightly and offset up and to the side, so at least three of its corners are visible. The hand holds both cards from the lower edge, with only the thumb resting on the bottom margin of the front card. Natural window light, the wall slightly out of focus. ${MOOD}`,
     blank: 'The ENTIRE front card is one flat, solid {GREEN} and the ENTIRE back card is one flat, solid {MAGENTA}, each edge to edge, with no text, pattern, border or texture on them.',
     rules: 'Apart from the thumb and fingers holding them, nothing covers the cards.',
   },
@@ -30,13 +33,13 @@ export const TYPES = {
     label: 'Stand',
     keys: 1,
     backdrop: { label: 'Party', fallback: 'party' },
-    template: 'Product photo, portrait 3:4, of one blank 5x7 inch invitation card standing upright in a clear acrylic stand on {SURFACE}, the card fully visible and facing the camera, with a {BACKDROP} softly blurred in the background. {PROPS} Warm natural light.',
+    template: `Product photo, portrait 3:4, of one blank 5x7 inch invitation card standing upright in a clear acrylic stand on {SURFACE}, the card fully visible and facing the camera, with a {BACKDROP} softly blurred in the background. {PROPS} Warm natural light. ${MOOD}`,
   },
   phone: {
     label: 'Phone',
     keys: 1,
     target: 'screen',
-    template: 'Overhead flat-lay product photo, portrait 3:4, of a modern smartphone lying flat on {SURFACE}, its screen fully visible and facing up. {PROPS} Soft even light.',
+    template: `Overhead flat-lay product photo, portrait 3:4, of a modern smartphone lying flat on {SURFACE}, its screen fully visible and facing up. {PROPS} Even natural light. ${MOOD}`,
   },
 };
 
@@ -52,7 +55,9 @@ export function buildPrompt({ type, surface, props, colours, key, backdrop = '' 
   const t = TYPES[type];
   let propsText = 'Keep the surface simple, with no other props.';
   if (props.length) {
-    propsText = `Around ${t.keys === 2 ? 'them' : 'it'}: ${joinList(props)}.`;
+    // Props at the frame edges, partly cropped: they set the theme without staging a display around the card.
+    const hero = t.keys === 2 ? 'the cards' : t.target === 'screen' ? 'the phone' : 'the card';
+    propsText = `A few props, styled naturally as if casually set down, sit at the edges and corners of the frame and are partly cropped off by it, so mostly only an edge or a corner of each shows: ${joinList(props)}. Leave open surface around ${hero}.`;
     if (colours.length) propsText += ` Props in a palette of ${joinList(colours)}.`;
   }
   const scene = t.template
