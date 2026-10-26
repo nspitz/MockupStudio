@@ -9,6 +9,7 @@ import { cropFor, outputSize } from '../js/export.js';
 import { pixels } from '../js/files.js';
 import { NAMED, extractColours, chooseKey } from '../js/palette.js';
 import { buildPrompt, joinList } from '../js/prompt.js';
+import { parsePack, packColours } from '../js/pack.js';
 
 const results = [];
 const check = (name, ok, detail = '') => results.push({ name, ok, detail });
@@ -172,6 +173,28 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
   check('phone prompt', phone.includes('smartphone') && phone.includes('ENTIRE phone screen') && phone.includes('overlaps the screen')
     && phone.includes('no other props') && !phone.includes('palette'), phone);
   check('list joining', joinList(['a']) === 'a' && joinList(['a', 'b', 'c']) === 'a, b and c');
+  check('main prompt is head-on', main.includes('straight-down') && main.includes('square to the frame'), main);
+  const party = buildPrompt({ ...base, type: 'stand', backdrop: 'cosy Christmas baby shower' });
+  check('stand prompt uses the party', party.includes('a cosy Christmas baby shower softly blurred') && !party.includes('{'), party);
+  check('stand prompt falls back to "party"', stand.includes('with a party softly blurred'), stand);
+  const pile = buildPrompt({ ...base, type: 'pile', key: 'magenta' });
+  check('pile prompt: two keys, corners, no same-colour touching', pile.includes('Four blank') && pile.includes('all four corners of every card')
+    && pile.includes('(#00FF00)') && pile.includes('(#FF00FF)') && pile.includes('no two cards of the same colour touch')
+    && pile.includes('Around them:') && pile.includes('No other bright green or magenta'), pile);
+  const hand = buildPrompt({ ...base, type: 'hand', backdrop: '' });
+  check('hand prompt: front green, back magenta, wall fallback, no props', hand.includes('front card is one flat, solid pure chroma-key green')
+    && hand.includes('back card is one flat, solid pure chroma-key magenta') && hand.includes('a plain warm off-white wall')
+    && hand.includes('thumb') && !hand.includes('silk ribbon') && !hand.includes('{'), hand);
+}
+
+// 9. Props pack: parses a pack, rejects junk with a readable message, names known colours.
+{
+  const p = parsePack('{"name":"Lace","surface":"a cream linen cloth","props":["a red velvet ribbon"," ",""],"party":"Christmas shower","colours":["Deep red","not-a-colour"]}');
+  check('pack parses and drops blank props', p.name === 'Lace' && p.props.length === 1 && p.wall === '' && p.party === 'Christmas shower', JSON.stringify(p));
+  const cs = packColours(p);
+  check('pack colours: known name gets rgb, unknown does not', !!cs[0].rgb && cs[1].rgb === null, JSON.stringify(cs));
+  const err = (t) => { try { parsePack(t); return ''; } catch (e) { return e.message; } };
+  check('pack rejects bad JSON and missing props', /valid JSON/.test(err('{nope')) && /props/.test(err('{"name":"x"}')) && /object/.test(err('[1]')));
 }
 
 const pass = results.every((r) => r.ok);

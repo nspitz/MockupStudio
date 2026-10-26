@@ -8,15 +8,12 @@ Live: https://nspitz.github.io/MockupStudio/
 
 ## Use
 
-1. In Gemini, generate a scene with a solid green blank card (prompt below).
-2. Open the page, choose your design (front) and the scene.
-3. Check the corners (drag to fine-tune), use **Compare** to confirm the text, then **Download JPG** or **Save / Share** on a phone.
+1. Optional: paste the design's props pack (JSON with `name`, `surface`, `props`, `party`, `wall`, `colours`) under **Props pack**. It sets the theme's surface, props, party and wall for every shot.
+2. Pick a shot (Pile, Main, Hand, Stand, Phone), copy the prompt, and generate the scene in Gemini. Never attach the design.
+3. Open the page, choose your design (front) and the scene.
+4. Check the corners (drag to fine-tune), use **Compare** to confirm the text, then **Download JPG** or **Save / Share** on a phone.
 
-Scene prompt that works:
-
-```
-Overhead flat-lay product photo, portrait 3:4. A single blank 5x7 inch invitation card lies in the centre on a white linen tablecloth. The ENTIRE front surface of the card is one flat, solid, pure chroma-key green colour (#00FF00) — no text, no pattern, no border, no texture, edge to edge. Around it: iridescent snowflake confetti, a loose white silk ribbon, silver tinsel. Soft natural daylight, gentle realistic shadows. No text, signs or logos anywhere in the image.
-```
+Pile and Hand scenes use two keys, green for fronts and magenta for backs. Compositing them needs hand mode and pile mode, which aren't built yet.
 
 ## Design Fidelity Rules
 
@@ -33,6 +30,9 @@ Plain HTML + ES modules, no build step.
 | `js/compose.js` | warp, lighting, paper texture, despill, Compare flattening |
 | `js/export.js` | crops (R4), output size, JPG |
 | `js/handles.js` | draggable corners + magnifier |
+| `js/prompt.js`, `js/props.js` | shot types, prompt text, prop library |
+| `js/pack.js`, `js/promptPanel.js` | props pack parsing, the prompt section |
+| `js/palette.js` | design colour names, key choice |
 | `js/main.js` | page wiring |
 
 ## Tests

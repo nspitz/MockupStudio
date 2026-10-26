@@ -186,6 +186,15 @@ button.ghost { border-color: transparent; background: transparent; color: var(--
 #surfaceOther { width: 100%; margin-top: 10px; }
 .text.prompt { width: 100%; margin-top: 14px; resize: vertical; font-size: 0.9rem; line-height: 1.45; }
 
+.seg.wrap { flex-wrap: wrap; }
+#propsBlock[hidden], .row[hidden] { display: none; }
+
+.pack { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; }
+.pack summary { cursor: pointer; font-weight: 600; min-height: 34px; line-height: 34px; }
+.pack summary .status { display: inline; margin: 0 0 0 8px; font-weight: 400; font-size: 0.85rem; }
+.pack textarea { width: 100%; margin-top: 10px; font-size: 0.85rem; resize: vertical; }
+.prop-groups .pack-props { grid-column: 1 / -1; border-color: var(--accent); }
+
 .prop-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 14px; }
 .prop-groups fieldset { border: 1px solid var(--line); border-radius: 10px; margin: 0; padding: 6px 10px 8px; min-width: 0; }
 .prop-groups legend { color: var(--muted); font-size: 0.8rem; padding: 0 4px; }

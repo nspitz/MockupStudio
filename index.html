@@ -33,28 +33,46 @@
 
     <section class="card">
       <h2><span class="num">2</span> Gemini prompt</h2>
-      <div class="seg" id="typeSeg">
-        <button data-type="main">Main flat-lay</button>
+      <details class="pack" id="packBox">
+        <summary>Props pack <span class="status" id="packStatus"></span></summary>
+        <textarea id="packText" class="text" rows="5" aria-label="Props pack JSON" placeholder='Paste the design&#39;s props.json here: { "name": …, "surface": …, "props": […], "party": …, "wall": …, "colours": […] }'></textarea>
+        <p class="status" id="packError" data-kind="error" hidden></p>
+        <div class="row buttons">
+          <button id="applyPack" class="primary" type="button">Use this pack</button>
+          <button id="clearPack" type="button" hidden>Clear pack</button>
+        </div>
+        <p class="note">A pack sets the surface, props, party and wall for all five shots, and clears the props ticked below.</p>
+      </details>
+      <div class="seg wrap" id="typeSeg">
+        <button data-type="pile">Pile</button>
+        <button data-type="main">Main</button>
+        <button data-type="hand">Hand</button>
         <button data-type="stand">Stand</button>
         <button data-type="phone">Phone</button>
       </div>
-      <label class="row">
-        <span class="label">Surface</span>
-        <select id="surface"></select>
+      <label class="row" id="backdropRow" hidden>
+        <span class="label" id="backdropLabel">Background</span>
+        <input type="text" id="backdrop" class="text grow">
       </label>
-      <input type="text" id="surfaceOther" class="text" placeholder="Describe the surface, e.g. a pale pink satin cloth" hidden>
-      <div id="propGroups" class="prop-groups"></div>
-      <div class="row">
-        <input type="text" id="newProp" class="text grow" placeholder="Add a prop to the list, e.g. gold cutlery">
-        <button id="addProp" type="button">+ Add</button>
-      </div>
-      <label class="row">
-        <span class="label">Other props</span>
-        <input type="text" id="otherProps" class="text grow" placeholder="Just for this prompt">
-      </label>
-      <div class="row">
-        <span class="label">Prop colours</span>
-        <div id="colourChips" class="chips"></div>
+      <div id="propsBlock">
+        <label class="row">
+          <span class="label">Surface</span>
+          <select id="surface"></select>
+        </label>
+        <input type="text" id="surfaceOther" class="text" placeholder="Describe the surface, e.g. a pale pink satin cloth" hidden>
+        <div id="propGroups" class="prop-groups"></div>
+        <div class="row">
+          <input type="text" id="newProp" class="text grow" placeholder="Add a prop to the list, e.g. gold cutlery">
+          <button id="addProp" type="button">+ Add</button>
+        </div>
+        <label class="row">
+          <span class="label">Other props</span>
+          <input type="text" id="otherProps" class="text grow" placeholder="Just for this prompt">
+        </label>
+        <div class="row">
+          <span class="label">Prop colours</span>
+          <div id="colourChips" class="chips"></div>
+        </div>
       </div>
       <div class="row">
         <span class="label">Key colour</span>
