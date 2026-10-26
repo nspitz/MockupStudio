@@ -10,6 +10,7 @@ import { designLevels, renderComposite, flattenCard } from './compose.js';
 import { cropFor, outputSize, toJpegBlob, downloadBlob, canShareFiles, shareBlob } from './export.js';
 import { createHandles } from './handles.js';
 import { createPromptPanel } from './promptPanel.js';
+import { listDesigns, getDesign, importLibrary } from './library.js';
 
 const PREVIEW_LONG = 1400;
 const DETECT_LONG = 1000;
@@ -136,11 +137,64 @@ async function openDesign(file, role) {
   state[role] = { design: d, levels: designLevels(d.canvas) };
   const { width: w, height: h } = d.canvas;
   $(role === 'front' ? 'designName' : 'backName').textContent = `${file.name} · ${w}×${h}`;
-  if (Math.min(w, h) < 1500) {
-    setStatus(`The ${role} design is only ${w}×${h}. Use the original Canva export (PNG, 1500×2100 or more), not a WhatsApp copy.`, 'warn');
+  if (Math.min(w, h) < 1400) {
+    setStatus(`The ${role} design is only ${w}×${h}. Use the original Canva export (1400×2000 or more), not a WhatsApp copy.`, 'warn');
   }
   return d;
 }
+
+// ---- Saved designs -------------------------------------------------------
+
+async function refreshSaved(selected = '') {
+  const list = await listDesigns();
+  const first = document.createElement('option');
+  first.value = '';
+  first.textContent = list.length ? `Choose one of ${list.length}…` : 'None yet: import a library';
+  $('savedSelect').replaceChildren(first, ...list.map(({ slug, name }) => {
+    const o = document.createElement('option');
+    o.value = slug;
+    o.textContent = name;
+    return o;
+  }));
+  $('savedSelect').value = selected;
+}
+
+$('libraryInput').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  try {
+    $('savedNote').textContent = 'Importing…';
+    const { count, kept } = await importLibrary(f);
+    $('savedNote').textContent = kept
+      ? `${count} designs saved on this device.`
+      : `${count} designs loaded, but this browser won't keep them (private mode?). They last until you close the page.`;
+    await refreshSaved();
+  } catch (err) {
+    $('savedNote').textContent = err.message;
+  }
+});
+
+// A saved design fills front, back and the props pack in one go.
+$('savedSelect').addEventListener('change', async (e) => {
+  const d = e.target.value && await getDesign(e.target.value);
+  if (!d) return;
+  try {
+    const file = (blob, side) => new File([blob], `${d.slug}-${side}.jpg`, { type: blob.type });
+    const front = await openDesign(file(d.front, 'front'), 'front');
+    promptPanel.setDesign(front.canvas);
+    if (d.back) await openDesign(file(d.back, 'back'), 'back');
+    else { state.back = null; $('backName').textContent = 'Only for Hand and Pile scenes'; }
+    if (d.pack) promptPanel.usePack(d.pack);
+    $('savedNote').textContent = `${d.name}: front${d.back ? ', back' : ''}${d.pack ? ' and props pack' : ''} loaded.`;
+    if (state.scene) detect(true);
+    else setStatus('Design loaded. Pick a shot, copy the Gemini prompt, make the scene in Gemini, then open it under Scene.', 'ok');
+  } catch (err) {
+    setStatus(err.message, 'error');
+  }
+});
+
+refreshSaved();
 
 $('designInput').addEventListener('change', async (e) => {
   const f = e.target.files[0];
@@ -148,7 +202,7 @@ $('designInput').addEventListener('change', async (e) => {
   try {
     const d = await openDesign(f, 'front');
     promptPanel.setDesign(d.canvas);
-    if (Math.min(d.canvas.width, d.canvas.height) >= 1500 && !state.scene) {
+    if (Math.min(d.canvas.width, d.canvas.height) >= 1400 && !state.scene) {
       setStatus('Design loaded. Copy the Gemini prompt, make the scene in Gemini, then open it under Scene.', 'ok');
     }
     orientationHint();

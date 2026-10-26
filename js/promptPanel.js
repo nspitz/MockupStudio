@@ -142,25 +142,28 @@ export function createPromptPanel() {
   }
 
   // A new pack replaces the ticked list props on every type, so the last design's props don't carry over.
+  function usePack(pack) {
+    prefs.pack = pack;
+    for (const t of Object.keys(TYPES)) {
+      const s = selOf(t);
+      s.props = [];
+      s.packOff = [];
+      s.other = '';
+      if (pack.surface) s.surface = 'pack';
+      if (t === 'stand') s.backdrop = pack.party;
+      if (t === 'hand') s.backdrop = pack.wall;
+    }
+    persist();
+    refreshColours();
+    renderAll();
+  }
+
   $('applyPack').addEventListener('click', () => {
     try {
-      const pack = parsePack($('packText').value);
-      prefs.pack = pack;
-      for (const t of Object.keys(TYPES)) {
-        const s = selOf(t);
-        s.props = [];
-        s.packOff = [];
-        s.other = '';
-        if (pack.surface) s.surface = 'pack';
-        if (t === 'stand') s.backdrop = pack.party;
-        if (t === 'hand') s.backdrop = pack.wall;
-      }
+      usePack(parsePack($('packText').value));
       $('packText').value = '';
       $('packError').hidden = true;
       $('packBox').open = false;
-      persist();
-      refreshColours();
-      renderAll();
     } catch (err) {
       $('packError').textContent = err.message;
       $('packError').hidden = false;
@@ -255,6 +258,7 @@ export function createPromptPanel() {
   renderAll();
 
   return {
+    usePack,
     setDesign(canvas) {
       designColours = extractColours(canvas);
       refreshColours();

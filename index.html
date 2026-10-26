@@ -16,6 +16,15 @@
   <main>
     <section class="card">
       <h2><span class="num">1</span> Files</h2>
+      <div class="row saved">
+        <span class="label">Saved designs</span>
+        <select id="savedSelect" class="grow"></select>
+        <label class="button-like">
+          <input type="file" id="libraryInput" accept=".json,application/json">
+          <span>Import library</span>
+        </label>
+      </div>
+      <p class="note" id="savedNote"></p>
       <div class="pickers">
         <label class="picker">
           <input type="file" id="designInput" accept="image/*">

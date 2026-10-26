@@ -8,6 +8,7 @@ Live: https://nspitz.github.io/MockupStudio/
 
 ## Use
 
+0. Optional: **Saved designs → Import library** once per device, with a library file (`{"format":"mockup-studio-library","designs":[{slug, name, front, back, pack}]}`, images as data URLs). It's kept in that browser's IndexedDB; after that, picking a design fills its front, back and props pack. Library files hold the print files you sell, so they never go in this public repo.
 1. Optional: paste the design's props pack (JSON with `name`, `surface`, `props`, `party`, `wall`, `colours`) under **Props pack**. It sets the theme's surface, props, party and wall for every shot.
 2. Pick a shot (Pile, Main, Hand, Stand, Phone), copy the prompt, and generate the scene in Gemini. Never attach the design.
 3. Open the page, choose your design (front) and the scene.
@@ -33,9 +34,10 @@ Plain HTML + ES modules, no build step.
 | `js/handles.js` | draggable corners + magnifier |
 | `js/prompt.js`, `js/props.js` | shot types, prompt text, prop library |
 | `js/pack.js`, `js/promptPanel.js` | props pack parsing, the prompt section |
+| `js/library.js` | saved designs: library import, on-device storage |
 | `js/palette.js` | design colour names, key choice |
 | `js/main.js` | page wiring |
 
 ## Tests
 
-Serve the folder (`python -m http.server 8765`) and open `tests/selftest.html` — the title reads `SELFTEST PASS` or `SELFTEST FAIL`. Headless: `chrome --headless=new --dump-dom http://127.0.0.1:8765/tests/selftest.html`. `tests/realscene.html` runs a real scene + design from `tests/local/` (git-ignored, never published); `tests/realmulti.html?set=hand` (or `?set=pile`, add `&outline` to draw the detected cards) does the same for a two-key scene (`<set>-scene.jpg`, `<set>-front.jpg`, `<set>-back.jpg`). Use a fresh `--user-data-dir` for headless runs, or Chrome serves cached modules.
+Serve the folder (`python -m http.server 8765`) and open `tests/selftest.html` — the title reads `SELFTEST PASS` or `SELFTEST FAIL`. Headless: `chrome --headless=new --dump-dom http://127.0.0.1:8765/tests/selftest.html`. `tests/realscene.html` runs a real scene + design from `tests/local/` (git-ignored, never published); `tests/realmulti.html?set=hand` (or `?set=pile`, add `&outline` to draw the detected cards) does the same for a two-key scene (`<set>-scene.jpg`, `<set>-front.jpg`, `<set>-back.jpg`). Use a fresh `--user-data-dir` for headless runs, or Chrome serves cached modules. Under `--virtual-time-budget` IndexedDB stalls, so the library tests run on the 3s memory fallback; to test IndexedDB itself, run on real time with `--remote-debugging-port` and read the page title from `/json`.

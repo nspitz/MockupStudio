@@ -11,6 +11,7 @@ import { pixels } from '../js/files.js';
 import { NAMED, extractColours, chooseKey } from '../js/palette.js';
 import { buildPrompt, joinList } from '../js/prompt.js';
 import { parsePack, packColours } from '../js/pack.js';
+import { importLibrary, listDesigns, getDesign } from '../js/library.js';
 
 const results = [];
 const check = (name, ok, detail = '') => results.push({ name, ok, detail });
@@ -332,6 +333,30 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
     return k ? Math.max(...k.corners.map((p, i) => dist(p, q[i]))) : Infinity;
   });
   check('pile: every card within 4px, hidden corners included', errs.every((e) => e <= 4), errs.map((e) => `${e.toFixed(1)}px`).join(', '));
+}
+
+// 13. Saved designs: a library file imports into IndexedDB, lists, loads back as images, and a
+// re-import replaces by slug instead of adding a duplicate.
+{
+  const png = (hex) => {
+    const c = canvas(14, 20), x = c.getContext('2d');
+    x.fillStyle = hex; x.fillRect(0, 0, 14, 20);
+    return c.toDataURL('image/png');
+  };
+  const lib = (name) => new File([JSON.stringify({
+    format: 'mockup-studio-library', version: 1,
+    designs: [{ slug: 'selftest-design', name, front: png('#aa2233'), back: png('#223388'), pack: { name, props: ['a red ribbon'], surface: 'a linen cloth' } }],
+  })], 'mockup-library.json', { type: 'application/json' });
+  const first = await importLibrary(lib('Selftest A'));
+  await importLibrary(lib('Selftest B'));
+  const listed = (await listDesigns()).filter((d) => d.slug === 'selftest-design');
+  const d = await getDesign('selftest-design');
+  const bmp = d && await createImageBitmap(d.front);
+  check('library: imports, replaces by slug, keeps images and pack', first.count === 1 && listed.length === 1 && listed[0].name === 'Selftest B'
+    && bmp?.width === 14 && d.back instanceof Blob && d.pack?.props[0] === 'a red ribbon', `kept=${first.kept}, listed=${JSON.stringify(listed)}`);
+  let rejected = '';
+  try { await importLibrary(new File(['{"format":"other"}'], 'x.json')); } catch (e) { rejected = e.message; }
+  check('library: rejects a file that is not a library', /library file/.test(rejected), rejected);
 }
 
 const pass = results.every((r) => r.ok);

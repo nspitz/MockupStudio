@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-26 — Saved designs
+
+- New in section 1: **Saved designs** and **Import library**. A library file holds each design's front, back and props pack; it's imported once per device into IndexedDB (falling back to memory for the session if the browser won't store it or stalls for 3s). Picking a design loads all three, and re-detects when a scene is already open, so you can go through designs over the same scene. Re-importing replaces designs by slug.
+- Library files are made outside this repo (they hold the print files) and are never published here.
+- Size warning now starts below 1400px on the short side (Canva 5x7 exports are 1429×2000).
+- Tests: 41 self-checks passing (2 new: library import/replace/load, reject a non-library file). A real 7-design, 21.5 MB library imported and drove the full flow in the page on real IndexedDB.
+
 ## 2026-10-26 — Step 3: pile mode
 
 - Any number of green fronts and magenta backs in one scene. Each key colour is split into cards: a piece at least 25% of that colour's largest is a card, smaller pieces down to 1% join the nearest card (the back card's slivers in a hand shot), and the rest is noise. Every card must fill 25% of its outline.
