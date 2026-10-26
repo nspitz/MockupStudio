@@ -87,8 +87,8 @@ main { max-width: 760px; margin: 0 auto; padding: 8px 16px 48px; }
   margin-bottom: 14px;
 }
 
-.pickers { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-@media (max-width: 480px) { .pickers { grid-template-columns: 1fr; } }
+.pickers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 600px) { .pickers { grid-template-columns: 1fr; } }
 
 .picker {
   display: flex;
@@ -136,6 +136,7 @@ main { max-width: 760px; margin: 0 auto; padding: 8px 16px 48px; }
 #magnifier[hidden] { display: none; }
 
 .quad { fill: none; stroke: #fff; stroke-width: 1.5; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 1px #000); }
+.quad.other { stroke-dasharray: 6 4; opacity: 0.75; pointer-events: none; }
 .knob { cursor: grab; touch-action: none; }
 .knob .hit { fill: transparent; }
 .knob .dot { fill: #fff; stroke: #1d1c1a; stroke-width: 2; vector-effect: non-scaling-stroke; }

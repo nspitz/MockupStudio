@@ -1,5 +1,6 @@
 // Corner handles over the scene: drag with finger or mouse, with a magnifier while dragging.
-// Coordinates are scene pixels (the SVG viewBox is the scene's size).
+// Coordinates are scene pixels (the SVG viewBox is the scene's size). One card is active and
+// draggable; other cards (the back card in a hand shot) are drawn as a dashed outline.
 
 const NS = 'http://www.w3.org/2000/svg';
 const KNOB_PX = 11, HIT_PX = 24;
@@ -11,10 +12,11 @@ function el(name, attrs = {}) {
 }
 
 export function createHandles({ svg, magnifier, getScene, onCommit, onPick }) {
-  let W = 1, H = 1, corners = null, crop = null, drag = -1, pickMode = false;
+  let W = 1, H = 1, corners = null, others = [], crop = null, drag = -1, pickMode = false;
 
   const shade = el('path', { class: 'crop-shade', 'fill-rule': 'evenodd' });
   const cropLine = el('rect', { class: 'crop-line' });
+  const otherGroup = el('g');
   const poly = el('polygon', { class: 'quad' });
   const knobs = [0, 1, 2, 3].map((i) => {
     const g = el('g', { class: 'knob' });
@@ -29,7 +31,7 @@ export function createHandles({ svg, magnifier, getScene, onCommit, onPick }) {
     });
     return g;
   });
-  svg.append(shade, cropLine, poly, ...knobs);
+  svg.append(shade, cropLine, otherGroup, poly, ...knobs);
 
   const unit = () => W / (svg.getBoundingClientRect().width || W);
 
@@ -44,6 +46,7 @@ export function createHandles({ svg, magnifier, getScene, onCommit, onPick }) {
   function draw() {
     const u = unit();
     poly.setAttribute('points', corners ? corners.map((p) => p.join(',')).join(' ') : '');
+    otherGroup.replaceChildren(...others.map((q) => el('polygon', { class: 'quad other', points: q.map((p) => p.join(',')).join(' ') })));
     knobs.forEach((g, i) => {
       g.style.display = corners ? '' : 'none';
       if (!corners) return;
@@ -104,6 +107,7 @@ export function createHandles({ svg, magnifier, getScene, onCommit, onPick }) {
       draw();
     },
     setCorners(c) { corners = c && c.map((p) => p.slice()); draw(); },
+    setOthers(list) { others = list.map((q) => q.map((p) => p.slice())); draw(); },
     setCrop(rect) { crop = rect; draw(); },
     setPickMode(on) { pickMode = on; svg.classList.toggle('picking', on); },
   };

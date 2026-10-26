@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-26 — Step 4: hand mode
+
+- New picker: Design (back). A scene with a sizeable green card and a magenta card that fills at least 25% of its outline becomes a hand shot: front design on green, back design on magenta. Without a back design the app says to choose one; pink balloons in a Stand scene don't count as a card.
+- The back card is found from every piece of magenta, merged (at least 1% of the largest piece). Seen around the front card, it splits into separate pieces, and the largest piece alone put its corners up to 433px off on the real scene.
+- Hidden corners: the card's 4 edges are extended to meet, so a corner under the hand is still found (front card's bottom-left: was 13px off, now exact). The old method is kept when nothing is hidden, so visible corners stay exact.
+- `renderComposite` takes a list of cards and reads every card's mask from the untouched scene before drawing any design, so a back design full of green can't be taken for the green key.
+- Corners: a Front / Back switch; the other card is drawn as a dashed outline. Crops keep both cards whole (R4). Compare shows both pairs.
+- Tests: 36 self-checks passing (7 new: merged back pieces, front under a thumb, no key left, both cards match their designs, two hidden-corner cases). `tests/realhand.html` on the real Gemini hand scene: 0 green and 0 magenta pixels left, 1493×2000.
+
 ## 2026-10-26 — Step 2b: five shots and props packs
 
 - Shot types are now Pile, Main, Hand, Stand, Phone. Main is head-on (straight down, square to the frame). Stand puts a named party in the blurred background.

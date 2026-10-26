@@ -5,7 +5,8 @@ import { FidelityError } from './rules.js';
 
 export const ASPECTS = { original: null, '3:4': 3 / 4, '4:5': 4 / 5, '1:1': 1, '4:3': 4 / 3 };
 
-// The largest crop of that aspect that still holds the whole card (R4), kept as central as possible.
+// The largest crop of that aspect that still holds every card whole (R4), kept as central as possible.
+// corners: any list of points, e.g. both cards' corners together.
 export function cropFor(sceneW, sceneH, aspectKey, corners) {
   const ratio = ASPECTS[aspectKey];
   if (!ratio) return { x: 0, y: 0, w: sceneW, h: sceneH };
@@ -13,7 +14,7 @@ export function cropFor(sceneW, sceneH, aspectKey, corners) {
   if (sceneW / sceneH > ratio) { h = sceneH; w = h * ratio; } else { w = sceneW; h = w / ratio; }
   const b = bbox(corners, sceneW, sceneH);
   if (b.x1 - b.x0 > w + 0.5 || b.y1 - b.y0 > h + 0.5) {
-    throw new FidelityError(`R4: a ${aspectKey} crop would cut the card. Choose another crop or "Original".`);
+    throw new FidelityError(`R4: a ${aspectKey} crop would cut a card. Choose another crop or "Original".`);
   }
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
   const x = clamp(clamp((sceneW - w) / 2, b.x1 - w, b.x0), 0, sceneW - w);

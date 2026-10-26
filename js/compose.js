@@ -78,11 +78,12 @@ export function paperNoise(px, py) {
 }
 
 /**
- * Renders `crop` of the scene at outW×outH and composites the design onto the card.
- * corners: [TL, TR, BR, BL] in scene pixels. Returns { canvas, quad, maskArea }.
- * Without levels or corners it returns the scene alone.
+ * Renders `crop` of the scene at outW×outH and composites each design onto its card.
+ * cards: [{ corners, rotation, keyHue, levels }], corners [TL, TR, BR, BL] in scene pixels.
+ * A single card can also be passed flat (corners, rotation, keyHue, levels).
+ * Returns { canvas, quads, areas } plus quad / maskArea for the first card.
  */
-export function renderComposite({ scene, crop, outW, outH, corners, rotation = 0, keyHue, levels, lighting, texture }) {
+export function renderComposite({ scene, crop, outW, outH, cards, corners, rotation = 0, keyHue, levels, lighting, texture }) {
   const out = document.createElement('canvas');
   out.width = outW;
   out.height = outH;
@@ -91,22 +92,29 @@ export function renderComposite({ scene, crop, outW, outH, corners, rotation = 0
   ctx.imageSmoothingQuality = 'high';
   // The scene is upscaled first and the design drawn into it at final size: the design is never upscaled afterwards.
   ctx.drawImage(scene, crop.x, crop.y, crop.w, crop.h, 0, 0, outW, outH);
-  if (!levels || !corners) return { canvas: out, quad: null, maskArea: 0 };
+  const list = (cards || [{ corners, rotation, keyHue, levels }]).filter((c) => c.levels && c.corners);
 
+  // Every card's mask is read from the untouched scene before any design is drawn, so one
+  // card's design (a tartan back full of green) can't be mistaken for another card's key.
   const k = outW / crop.w;
-  const quad = rotateCorners(corners.map(([x, y]) => [(x - crop.x) * k, (y - crop.y) * k]), rotation);
+  const prepared = list.map((c) => prepareCard(ctx, c, crop, k, outW, outH));
+  for (const p of prepared) if (p.box) drawCard(ctx, p, lighting, texture);
+  return { canvas: out, quads: prepared.map((p) => p.quad), areas: prepared.map((p) => p.area), quad: prepared[0]?.quad || null, maskArea: prepared[0]?.area || 0 };
+}
+
+function prepareCard(ctx, card, crop, k, outW, outH) {
+  const quad = rotateCorners(card.corners.map(([x, y]) => [(x - crop.x) * k, (y - crop.y) * k]), card.rotation || 0);
   const box = bbox(expandQuad(quad, 3), outW, outH);
   const bw = box.x1 - box.x0, bh = box.y1 - box.y0;
-  if (bw <= 1 || bh <= 1) return { canvas: out, quad, maskArea: 0 };
+  if (bw <= 1 || bh <= 1) return { quad, area: 0, box: null };
 
   const region = ctx.getImageData(box.x0, box.y0, bw, bh);
-  const base = region.data;
-  const src = new Uint8ClampedArray(base);
+  const src = region.data;
   const local = quad.map(([x, y]) => [x - box.x0, y - box.y0]);
   const grown = expandQuad(local, 3);
 
-  // Visibility: key-coloured AND on this card. Anything covering the card (a thumb) isn't key-coloured, so it stays on top.
-  const mask = keyCandidates(region, keyHue);
+  // Visibility: key-coloured AND on this card. Anything covering the card (a thumb, the front card) isn't this key colour, so it stays on top.
+  const mask = keyCandidates(region, card.keyHue);
   let area = 0;
   for (let y = 0, i = 0; y < bh; y++) {
     for (let x = 0; x < bw; x++, i++) {
@@ -115,7 +123,6 @@ export function renderComposite({ scene, crop, outW, outH, corners, rotation = 0
     }
   }
   fillSmallHoles(mask, bw, bh, Math.max(4, area * 0.003));
-  const medV = medianValue(region, mask);
 
   // 1px feather.
   const alpha = new Float32Array(mask.length);
@@ -129,15 +136,26 @@ export function renderComposite({ scene, crop, outW, outH, corners, rotation = 0
       alpha[y * bw + x] = s / 9;
     }
   }
+  return { card, quad, local, box, bw, bh, src, mask, alpha, area, medV: medianValue(region, mask) };
+}
+
+function drawCard(ctx, { card, quad, local, box, bw, bh, src, mask, alpha, medV }, lighting, texture) {
+  const { keyHue, levels } = card;
+  const region = ctx.getImageData(box.x0, box.y0, bw, bh);
+  const base = region.data;
 
   // Despill: within 3px of the card, take the key-coloured tint out of the scene's edge pixels.
+  // The hue test reads the untouched scene, so a design another card already drew here is left alone.
   const near = dilate(mask, bw, bh, 3);
   for (let i = 0, p = 0; i < mask.length; i++, p += 4) {
     if (!near[i] || alpha[i] >= 1) continue;
+    const sr = src[p], sg = src[p + 1], sb = src[p + 2];
+    const smax = Math.max(sr, sg, sb);
+    if (!smax || (smax - Math.min(sr, sg, sb)) / smax < 0.12 || hueDistance(hue(sr, sg, sb), keyHue) > 45) continue;
     const r = base[p], g = base[p + 1], b = base[p + 2];
     const max = Math.max(r, g, b);
     const s = max ? (max - Math.min(r, g, b)) / max : 0;
-    if (s < 0.12 || hueDistance(hue(r, g, b), keyHue) > 45) continue;
+    if (s < 0.12) continue;
     const gray = 0.299 * r + 0.587 * g + 0.114 * b;
     const t = Math.min(1, (s - 0.12) * 2.5);
     base[p] = r + (gray - r) * t;
@@ -180,7 +198,6 @@ export function renderComposite({ scene, crop, outW, outH, corners, rotation = 0
     }
   }
   ctx.putImageData(region, box.x0, box.y0);
-  return { canvas: out, quad, maskArea: area };
 }
 
 // Un-warps the card back to a flat design-sized image, for Compare.

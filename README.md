@@ -13,7 +13,7 @@ Live: https://nspitz.github.io/MockupStudio/
 3. Open the page, choose your design (front) and the scene.
 4. Check the corners (drag to fine-tune), use **Compare** to confirm the text, then **Download JPG** or **Save / Share** on a phone.
 
-Pile and Hand scenes use two keys, green for fronts and magenta for backs. Compositing them needs hand mode and pile mode, which aren't built yet.
+Pile and Hand scenes use two keys, green for fronts and magenta for backs. **Hand** works: choose the back design too, and the app fills both cards (switch between their corners with Front / Back). Pile mode isn't built yet.
 
 ## Design Fidelity Rules
 
@@ -37,4 +37,4 @@ Plain HTML + ES modules, no build step.
 
 ## Tests
 
-Serve the folder (`python -m http.server 8765`) and open `tests/selftest.html` — the title reads `SELFTEST PASS` or `SELFTEST FAIL`. Headless: `chrome --headless=new --dump-dom http://127.0.0.1:8765/tests/selftest.html`. `tests/realscene.html` runs a real scene + design from `tests/local/` (git-ignored, never published).
+Serve the folder (`python -m http.server 8765`) and open `tests/selftest.html` — the title reads `SELFTEST PASS` or `SELFTEST FAIL`. Headless: `chrome --headless=new --dump-dom http://127.0.0.1:8765/tests/selftest.html`. `tests/realscene.html` runs a real scene + design from `tests/local/` (git-ignored, never published); `tests/realhand.html` does the same for a two-key hand scene (`hand-scene.jpg`, `hand-front.jpg`, `hand-back.jpg`). Use a fresh `--user-data-dir` for headless runs, or Chrome serves cached modules.

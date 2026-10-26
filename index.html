@@ -23,8 +23,13 @@
           <span class="pick-name" id="designName">Tap to choose</span>
         </label>
         <label class="picker">
+          <input type="file" id="backInput" accept="image/*">
+          <span class="pick-title">Design (back)</span>
+          <span class="pick-name" id="backName">Only for Hand and Pile scenes</span>
+        </label>
+        <label class="picker">
           <input type="file" id="sceneInput" accept="image/*">
-          <span class="pick-title">Scene with a green card</span>
+          <span class="pick-title">Scene from Gemini</span>
           <span class="pick-name" id="sceneName">Tap to choose</span>
         </label>
       </div>
@@ -96,7 +101,14 @@
       </div>
       <p class="status" id="status" role="status"></p>
       <p class="status" id="hint" data-kind="warn" hidden></p>
-      <div class="row">
+      <div class="row" id="cardRow" hidden>
+        <span class="label">Corners of</span>
+        <div class="seg" id="cardSeg">
+          <button data-card="0">Front (green)</button>
+          <button data-card="1">Back (magenta)</button>
+        </div>
+      </div>
+      <div class="row" id="keyRow">
         <span class="label">Key colour</span>
         <div class="seg" id="keySeg">
           <button data-key="green">Green</button>

@@ -68,6 +68,28 @@ export function largestComponent(mask, w, h) {
   return { mask: out, area: bestSize };
 }
 
+// Every component at least `minShare` of the largest one, merged. A back card seen around
+// the front card shows up in separate pieces; dropping all but the largest loses its corners.
+export function mergedComponents(mask, w, h, minShare = 0.01) {
+  const seen = new Uint8Array(mask.length), stack = new Int32Array(mask.length);
+  const comps = [];
+  for (let i = 0; i < mask.length; i++) {
+    if (!mask[i] || seen[i]) continue;
+    let size = 0;
+    flood(mask, w, h, i, 1, seen, stack, () => size++);
+    comps.push([i, size]);
+  }
+  const biggest = Math.max(0, ...comps.map((c) => c[1]));
+  const out = new Uint8Array(mask.length), mark = new Uint8Array(mask.length);
+  let area = 0;
+  for (const [start, size] of comps) {
+    if (size < biggest * minShare) continue;
+    flood(mask, w, h, start, 1, mark, stack, (p) => { out[p] = 1; });
+    area += size;
+  }
+  return { mask: out, area };
+}
+
 // Fills enclosed gaps up to maxHole pixels (specks of noise). Larger gaps stay
 // open — they are things in front of the card, such as a thumb.
 export function fillSmallHoles(mask, w, h, maxHole) {
@@ -86,9 +108,11 @@ export function fillSmallHoles(mask, w, h, maxHole) {
   return mask;
 }
 
-export function detectRegion(img, keyHue) {
+// merge: keep every sizeable piece of the key colour (a partly hidden back card), not just the largest.
+export function detectRegion(img, keyHue, merge = false) {
   const { width: w, height: h } = img;
-  const { mask, area } = largestComponent(keyCandidates(img, keyHue), w, h);
+  const candidates = keyCandidates(img, keyHue);
+  const { mask, area } = merge ? mergedComponents(candidates, w, h) : largestComponent(candidates, w, h);
   fillSmallHoles(mask, w, h, Math.max(4, area * 0.003));
   let filled = 0;
   for (let i = 0; i < mask.length; i++) filled += mask[i];

@@ -12,14 +12,18 @@ import { createPromptPanel } from './promptPanel.js';
 
 const PREVIEW_LONG = 1400;
 const DETECT_LONG = 1000;
+// A back card must fill at least this much of its outline; scattered pink balloons don't.
+const BACK_MIN_FILL = 0.25;
 
 const $ = (id) => document.getElementById(id);
 
 const state = {
-  design: null,
-  levels: null,
+  front: null, // { design, levels }
+  back: null,
   scene: null,
-  corners: null,
+  // One card, or front (green) + back (magenta) in a hand shot: [{ role, key: { name, hue }, corners }].
+  cards: [],
+  active: 0,
   key: { name: 'green', hue: KEYS.green.hue },
   rotation: 0,
   lighting: 0.8,
@@ -28,11 +32,15 @@ const state = {
   exportCount: 0,
 };
 
+const two = () => state.cards.length === 2;
+const designOf = (card) => (card.role === 'back' ? state.back : state.front);
+const allCorners = () => state.cards.flatMap((c) => c.corners);
+
 const handles = createHandles({
   svg: $('overlay'),
   magnifier: $('magnifier'),
   getScene: () => state.scene?.canvas,
-  onCommit: (c) => { state.corners = c; orientationHint(); schedule(); },
+  onCommit: (c) => { state.cards[state.active].corners = c; orientationHint(); schedule(); },
   onPick: pickKey,
 });
 
@@ -59,8 +67,8 @@ function schedule() {
 function params(crop, outW, outH) {
   return {
     scene: state.scene.canvas, crop, outW, outH,
-    corners: state.corners, rotation: state.rotation, keyHue: state.key.hue,
-    levels: state.levels, lighting: state.lighting, texture: state.texture,
+    cards: state.cards.map((c) => ({ corners: c.corners, rotation: state.rotation, keyHue: c.key.hue, levels: designOf(c)?.levels })),
+    lighting: state.lighting, texture: state.texture,
   };
 }
 
@@ -78,10 +86,10 @@ function renderPreview() {
 }
 
 function updateCrop() {
-  if (!state.scene || !state.corners) return;
+  if (!state.scene || !state.cards.length) return;
   const s = state.scene.canvas;
   try {
-    handles.setCrop(state.aspect === 'original' ? null : cropFor(s.width, s.height, state.aspect, state.corners));
+    handles.setCrop(state.aspect === 'original' ? null : cropFor(s.width, s.height, state.aspect, allCorners()));
     $('cropError').hidden = true;
   } catch (err) {
     handles.setCrop(null);
@@ -91,32 +99,61 @@ function updateCrop() {
 }
 
 function ready() {
-  return !!(state.design && state.scene && state.corners);
+  return !!(state.front && state.scene && state.cards.length && (!two() || state.back));
 }
 
 function updateButtons() {
   for (const id of ['compareBtn', 'downloadBtn', 'shareBtn']) $(id).disabled = !ready();
 }
 
+function syncHandles() {
+  handles.setCorners(state.cards[state.active]?.corners || null);
+  handles.setOthers(state.cards.filter((_, i) => i !== state.active).map((c) => c.corners));
+}
+
+function updateModeUI() {
+  $('cardRow').hidden = !two();
+  $('keyRow').hidden = two();
+  for (const b of $('cardSeg').querySelectorAll('button')) b.setAttribute('aria-pressed', String(Number(b.dataset.card) === state.active));
+}
+
 // ---- Files ---------------------------------------------------------------
+
+async function openDesign(file, role) {
+  const d = await loadImage(file);
+  state[role] = { design: d, levels: designLevels(d.canvas) };
+  const { width: w, height: h } = d.canvas;
+  $(role === 'front' ? 'designName' : 'backName').textContent = `${file.name} · ${w}×${h}`;
+  if (Math.min(w, h) < 1500) {
+    setStatus(`The ${role} design is only ${w}×${h}. Use the original Canva export (PNG, 1500×2100 or more), not a WhatsApp copy.`, 'warn');
+  }
+  return d;
+}
 
 $('designInput').addEventListener('change', async (e) => {
   const f = e.target.files[0];
   if (!f) return;
   try {
-    const d = await loadImage(f);
-    state.design = d;
-    state.levels = designLevels(d.canvas);
-    const { width: w, height: h } = d.canvas;
-    $('designName').textContent = `${f.name} · ${w}×${h}`;
+    const d = await openDesign(f, 'front');
     promptPanel.setDesign(d.canvas);
-    if (Math.min(w, h) < 1500) {
-      setStatus(`The design is only ${w}×${h}. Use the original Canva export (PNG, 1500×2100 or more), not a WhatsApp copy.`, 'warn');
-    } else if (!state.scene) {
+    if (Math.min(d.canvas.width, d.canvas.height) >= 1500 && !state.scene) {
       setStatus('Design loaded. Copy the Gemini prompt, make the scene in Gemini, then open it under Scene.', 'ok');
     }
     orientationHint();
     schedule();
+  } catch (err) {
+    setStatus(err.message, 'error');
+  }
+});
+
+// A back design can turn a scene that is already open into a hand shot, so detect again.
+$('backInput').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    await openDesign(f, 'back');
+    if (state.scene && !two()) detect(true);
+    else { orientationHint(); schedule(); }
   } catch (err) {
     setStatus(err.message, 'error');
   }
@@ -144,13 +181,37 @@ function detect(autoKey) {
   const long = Math.max(s.width, s.height);
   const { w, h } = fitLongSide(s.width, s.height, Math.min(DETECT_LONG, long));
   const img = pixels(long > DETECT_LONG ? scaledCanvas(s, w, h) : s);
+  const k = s.width / w;
+  const toScene = (q) => q && q.map(([x, y]) => [x * k, y * k]);
+  const quadArea = (q) => Math.abs(q.reduce((a, p, i) => { const n = q[(i + 1) % 4]; return a + p[0] * n[1] - n[0] * p[1]; }, 0)) / 2;
+  setHint('');
 
   let best;
   if (autoKey) {
-    for (const name of ['green', 'magenta']) {
-      const r = detectRegion(img, KEYS[name].hue);
-      if (!best || r.area > best.area) best = { ...r, key: { name, hue: KEYS[name].hue } };
+    const green = detectRegion(img, KEYS.green.hue);
+    const magenta = detectRegion(img, KEYS.magenta.hue);
+    if (green.area / (w * h) >= 0.005 && magenta.area / (w * h) >= 0.005) {
+      const back = detectRegion(img, KEYS.magenta.hue, true);
+      const fq = findCorners(green.mask, w, h), bq = findCorners(back.mask, w, h);
+      const isCard = bq && back.area / quadArea(bq) >= BACK_MIN_FILL;
+      if (fq && isCard && state.back) {
+        state.cards = [
+          { role: 'front', key: { name: 'green', hue: KEYS.green.hue }, corners: toScene(fq) },
+          { role: 'back', key: { name: 'magenta', hue: KEYS.magenta.hue }, corners: toScene(bq) },
+        ];
+        state.active = 0;
+        state.key = state.cards[0].key;
+        updateModeUI();
+        updateKeySeg();
+        setStatus(`Front (green) and back (magenta) found. Check each card's corners with Front / Back.${state.front ? '' : ' Now choose the front design.'}`, 'ok');
+        syncHandles();
+        orientationHint();
+        schedule();
+        return;
+      }
+      if (fq && isCard && !state.back) setHint('This looks like a hand or pile scene with a magenta back card. Choose the back design to fill it.');
     }
+    best = green.area >= magenta.area ? { ...green, key: { name: 'green', hue: KEYS.green.hue } } : { ...magenta, key: { name: 'magenta', hue: KEYS.magenta.hue } };
     state.key = best.key;
     updateKeySeg();
   } else {
@@ -160,26 +221,33 @@ function detect(autoKey) {
   const coverage = best.area / (w * h);
   const pct = `${(coverage * 100).toFixed(1)}%`;
   const quad = coverage >= 0.005 ? findCorners(best.mask, w, h) : null;
+  let corners;
   if (!quad) {
-    state.corners = defaultCorners(s.width, s.height);
+    corners = defaultCorners(s.width, s.height);
     setStatus('No key-colour card found. Check the key colour, tap Pick and tap the card, or drag the 4 corners onto the card by hand.', 'warn');
   } else {
-    const k = s.width / w;
-    state.corners = quad.map(([x, y]) => [x * k, y * k]);
+    corners = toScene(quad);
     if (coverage < 0.03) setStatus(`Card found but small (${pct} of the scene). Check the corners.`, 'warn');
-    else setStatus(`Card found (${pct} of the scene). Drag a corner to fine-tune.${state.design ? '' : ' Now choose the design.'}`, 'ok');
+    else setStatus(`Card found (${pct} of the scene). Drag a corner to fine-tune.${state.front ? '' : ' Now choose the design.'}`, 'ok');
   }
-  handles.setCorners(state.corners);
-  orientationHint();
+  state.cards = [{ role: 'front', key: best.key, corners }];
+  state.active = 0;
+  updateModeUI();
+  syncHandles();
+  if ($('hint').hidden) orientationHint();
   schedule();
 }
 
 function orientationHint() {
-  if (!state.design || !state.corners) return setHint('');
-  const q = quadSize(rotateCorners(state.corners, state.rotation));
-  const d = state.design.canvas;
-  const mismatch = (q.w > q.h) !== (d.width > d.height);
-  setHint(mismatch ? "The card's shape doesn't match the design's orientation. Tap Rotate design." : '');
+  const off = state.cards.filter((c) => {
+    const d = designOf(c)?.design.canvas;
+    if (!d || !c.corners) return false;
+    const q = quadSize(rotateCorners(c.corners, state.rotation));
+    return (q.w > q.h) !== (d.width > d.height);
+  });
+  if (!off.length) return setHint('');
+  const which = two() ? ` (${off.map((c) => c.role).join(' and ')})` : '';
+  setHint(`The card's shape doesn't match the design's orientation${which}. Tap Rotate design.`);
 }
 
 function updateKeySeg() {
@@ -200,6 +268,14 @@ $('keySeg').addEventListener('click', (e) => {
   state.key = { name: key, hue: KEYS[key].hue };
   updateKeySeg();
   detect(false);
+});
+
+$('cardSeg').addEventListener('click', (e) => {
+  const i = e.target.closest('button')?.dataset.card;
+  if (i === undefined || !two()) return;
+  state.active = Number(i);
+  updateModeUI();
+  syncHandles();
 });
 
 function pickKey(x, y) {
@@ -223,7 +299,7 @@ $('rotateBtn').addEventListener('click', () => {
   schedule();
 });
 
-$('redetectBtn').addEventListener('click', () => { if (state.scene) detect(false); });
+$('redetectBtn').addEventListener('click', () => { if (state.scene) detect(two()); });
 
 // ---- Finish --------------------------------------------------------------
 
@@ -239,7 +315,7 @@ $('aspect').addEventListener('change', (e) => { state.aspect = e.target.value; u
 
 function renderFull(aspect) {
   const s = state.scene.canvas;
-  const crop = cropFor(s.width, s.height, aspect, state.corners);
+  const crop = cropFor(s.width, s.height, aspect, allCorners());
   const size = outputSize(crop);
   return renderComposite(params(crop, size.w, size.h));
 }
@@ -252,7 +328,7 @@ async function makeExport() {
   const r = renderFull(state.aspect);
   const blob = await toJpegBlob(r.canvas);
   const n = String(++state.exportCount).padStart(2, '0');
-  const name = `${slugify(state.design.name)}-mockup-${n}.jpg`;
+  const name = `${slugify(state.front.design.name)}-mockup-${n}.jpg`;
   setStatus(`${name}: ${r.canvas.width}×${r.canvas.height}, ${(blob.size / 1e6).toFixed(2)} MB.`, 'ok');
   return { blob, name };
 }
@@ -268,7 +344,7 @@ $('downloadBtn').addEventListener('click', async () => {
 
 // Safari only allows sharing straight after a tap; if rendering took too long, the second tap shares the cached file.
 let shareCache = null;
-const signature = () => JSON.stringify([state.corners, state.rotation, state.lighting, state.texture, state.aspect, state.key.hue, state.design.name, state.scene.name]);
+const signature = () => JSON.stringify([state.cards, state.rotation, state.lighting, state.texture, state.aspect, state.front.design.name, state.back?.design.name, state.scene.name]);
 
 $('shareBtn').hidden = !canShareFiles();
 $('shareBtn').addEventListener('click', async () => {
@@ -287,14 +363,18 @@ $('compareBtn').addEventListener('click', async () => {
   setStatus('Rendering…', 'info');
   await nextFrame();
   const r = renderFull('original');
-  const d = state.design.canvas;
-  const flat = flattenCard(r.canvas, r.quad, d.width, d.height);
-  const original = document.createElement('canvas');
-  original.width = flat.width;
-  original.height = flat.height;
-  original.getContext('2d').drawImage(d, 0, 0, flat.width, flat.height);
-  const body = $('compareBody');
-  body.replaceChildren(figure(original, 'Your original file'), figure(flat, 'Flattened from the mockup'));
+  const figures = [];
+  state.cards.forEach((card, i) => {
+    const d = designOf(card).design.canvas;
+    const flat = flattenCard(r.canvas, r.quads[i], d.width, d.height);
+    const original = document.createElement('canvas');
+    original.width = flat.width;
+    original.height = flat.height;
+    original.getContext('2d').drawImage(d, 0, 0, flat.width, flat.height);
+    const label = two() ? `${card.role === 'back' ? 'Back' : 'Front'}: ` : '';
+    figures.push(figure(original, `${label}your original file`), figure(flat, `${label}flattened from the mockup`));
+  });
+  $('compareBody').replaceChildren(...figures);
   setStatus('', 'info');
   $('compareDlg').showModal();
 });
@@ -325,4 +405,5 @@ $('aboutBtn').addEventListener('click', () => $('aboutDlg').showModal());
 for (const b of document.querySelectorAll('[data-close]')) b.addEventListener('click', () => b.closest('dialog').close());
 
 updateKeySeg();
+updateModeUI();
 updateButtons();

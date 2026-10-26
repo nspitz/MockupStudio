@@ -1,7 +1,7 @@
 // Synthetic end-to-end checks of the compositing maths. Open tests/selftest.html
 // (served over http, not file://); the page title ends up SELFTEST PASS or SELFTEST FAIL.
 
-import { homography, applyH } from '../js/geometry.js';
+import { homography, applyH, expandQuad, pointInConvex } from '../js/geometry.js';
 import { KEYS, detectRegion } from '../js/keying.js';
 import { findCorners } from '../js/corners.js';
 import { designLevels, renderComposite, flattenCard } from '../js/compose.js';
@@ -195,6 +195,110 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
   check('pack colours: known name gets rgb, unknown does not', !!cs[0].rgb && cs[1].rgb === null, JSON.stringify(cs));
   const err = (t) => { try { parsePack(t); return ''; } catch (e) { return e.message; } };
   check('pack rejects bad JSON and missing props', /valid JSON/.test(err('{nope')) && /props/.test(err('{"name":"x"}')) && /object/.test(err('[1]')));
+}
+
+// 10. Hand shot: a green front card over a magenta back card, which shows in three separate
+// pieces around it, plus a thumb on the front. The back design is full of key-range green.
+{
+  const backQ = [[170, 430], [510, 270], [740, 745], [400, 905]];
+  const frontQ = [[340, 355], [700, 355], [700, 870], [340, 870]];
+  const c = canvas(W, Hh), x = c.getContext('2d');
+  x.fillStyle = '#e6ded3';
+  x.fillRect(0, 0, W, Hh);
+  const card = (q, hex) => {
+    const path = () => { x.beginPath(); q.forEach(([px, py], i) => (i ? x.lineTo(px, py) : x.moveTo(px, py))); x.closePath(); };
+    path();
+    x.fillStyle = hex;
+    x.fill();
+    x.save();
+    path();
+    x.clip();
+    x.globalCompositeOperation = 'multiply';
+    const l = x.createLinearGradient(q[0][0], q[0][1], q[2][0], q[2][1]);
+    l.addColorStop(0, '#ffffff');
+    l.addColorStop(1, '#b0b0b0');
+    x.fillStyle = l;
+    x.fillRect(0, 0, W, Hh);
+    x.restore();
+  };
+  card(backQ, '#ff00ff');
+  card(frontQ, '#00ff00');
+  x.fillStyle = '#d9a383';
+  x.beginPath(); x.ellipse(620, 850, 45, 70, 0, 0, 7); x.fill();
+
+  const back = canvas(600, 840), bx = back.getContext('2d');
+  bx.fillStyle = '#50a060'; bx.fillRect(0, 0, 600, 840);
+  bx.fillStyle = '#fbf7f0';
+  for (let i = 0; i < 6; i++) bx.fillRect(i * 100 + 30, 0, 30, 840);
+  bx.fillStyle = '#7a1f3d'; bx.fillRect(0, 380, 600, 80);
+
+  const img = pixels(c);
+  const largest = findCorners(detectRegion(img, KEYS.magenta.hue).mask, W, Hh);
+  const merged = findCorners(detectRegion(img, KEYS.magenta.hue, true).mask, W, Hh);
+  const errOf = (q) => (q ? Math.max(...q.map((p, i) => dist(p, backQ[i]))) : Infinity);
+  check('hand: back corners from merged pieces within 4px', errOf(merged) <= 4, `merged ${errOf(merged).toFixed(2)}px, largest piece only ${errOf(largest).toFixed(0)}px`);
+  const front = findCorners(detectRegion(img, KEYS.green.hue).mask, W, Hh);
+  const fErr = front ? Math.max(...front.map((p, i) => dist(p, frontQ[i]))) : Infinity;
+  check('hand: front corners within 4px despite the thumb', fErr <= 4, `${fErr.toFixed(2)}px`);
+
+  const crop = cropFor(W, Hh, 'original', [...front, ...merged]);
+  const size = outputSize(crop);
+  const cards = [
+    { corners: front, keyHue: KEYS.green.hue, levels },
+    { corners: merged, keyHue: KEYS.magenta.hue, levels: designLevels(back) },
+  ];
+  const r = renderComposite({ scene: c, crop, outW: size.w, outH: size.h, cards, lighting: 0, texture: 0 });
+  const D = pixels(r.canvas).data;
+  let g = 0, m = 0;
+  for (let p = 0; p < D.length; p += 4) {
+    if (D[p] < 60 && D[p + 2] < 60 && D[p + 1] > 150) g++;
+    if (D[p] > 150 && D[p + 2] > 150 && D[p + 1] < 60) m++;
+  }
+  check('hand: no green or magenta key left', g <= 30 && m <= 30, `${g} green, ${m} magenta`);
+
+  const flatF = flattenCard(r.canvas, r.quads[0], 600, 840);
+  const A = pixels(flatF).data, B = pixels(design).data;
+  let sum = 0, n = 0;
+  for (let y = 6; y < 840 * 0.7; y++) {
+    for (let xx = 6; xx < 594; xx++) {
+      const p = (y * 600 + xx) * 4;
+      sum += Math.abs(A[p] - B[p]) + Math.abs(A[p + 1] - B[p + 1]) + Math.abs(A[p + 2] - B[p + 2]);
+      n += 3;
+    }
+  }
+  check('hand: front matches its design', sum / n < 6, `mean abs diff ${(sum / n).toFixed(2)}/255`);
+
+  // The back only where it shows: map each flat pixel into the export and skip what's behind the front card.
+  const flatB = flattenCard(r.canvas, r.quads[1], 600, 840);
+  const FB = pixels(flatB).data, BB = pixels(back).data;
+  const toOut = homography([[0, 0], [600, 0], [600, 840], [0, 840]], r.quads[1]);
+  const frontOut = expandQuad(r.quads[0], 2 * size.w / W);
+  const edge = expandQuad(r.quads[1], -3 * size.w / W);
+  sum = 0; n = 0;
+  for (let y = 0; y < 840; y += 2) {
+    for (let xx = 0; xx < 600; xx += 2) {
+      const [ox, oy] = applyH(toOut, xx + 0.5, y + 0.5);
+      if (pointInConvex(frontOut, ox, oy) || !pointInConvex(edge, ox, oy)) continue;
+      const p = (y * 600 + xx) * 4;
+      sum += Math.abs(FB[p] - BB[p]) + Math.abs(FB[p + 1] - BB[p + 1]) + Math.abs(FB[p + 2] - BB[p + 2]);
+      n += 3;
+    }
+  }
+  check('hand: visible back matches its design', n > 3000 && sum / n < 6, `mean abs diff ${(sum / n).toFixed(2)}/255 over ${n / 3} px`);
+}
+
+// 11. A hand covering a corner: the visible parts of the two edges, extended, give the hidden corner.
+{
+  const q = [[200, 180], [660, 230], [630, 900], [170, 860]];
+  for (const [label, cx, cy] of [['bottom-left', 175, 860], ['top-right', 660, 232]]) {
+    const scene = makeScene(W, Hh, q, '#00ff00', false);
+    const x = scene.getContext('2d');
+    x.fillStyle = '#d9a383';
+    x.beginPath(); x.ellipse(cx, cy, 70, 60, 0.4, 0, 7); x.fill();
+    const found = findCorners(detectRegion(pixels(scene), KEYS.green.hue).mask, W, Hh);
+    const err = found ? Math.max(...found.map((p, i) => dist(p, q[i]))) : Infinity;
+    check(`hidden ${label} corner found within 4px`, err <= 4, `max err ${err.toFixed(2)}px`);
+  }
 }
 
 const pass = results.every((r) => r.ok);
