@@ -147,6 +147,15 @@ export function bbox(q, W = Infinity, H = Infinity) {
   };
 }
 
+export function polygonArea(q) {
+  let a = 0;
+  for (let i = 0; i < q.length; i++) {
+    const p = q[i], n = q[(i + 1) % q.length];
+    a += p[0] * n[1] - n[0] * p[1];
+  }
+  return Math.abs(a) / 2;
+}
+
 // Average width and height of a [TL, TR, BR, BL] quad.
 export function quadSize(q) {
   const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);

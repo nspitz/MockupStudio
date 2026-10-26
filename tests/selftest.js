@@ -4,6 +4,7 @@
 import { homography, applyH, expandQuad, pointInConvex } from '../js/geometry.js';
 import { KEYS, detectRegion } from '../js/keying.js';
 import { findCorners } from '../js/corners.js';
+import { detectCards } from '../js/detect.js';
 import { designLevels, renderComposite, flattenCard } from '../js/compose.js';
 import { cropFor, outputSize } from '../js/export.js';
 import { pixels } from '../js/files.js';
@@ -234,10 +235,12 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
 
   const img = pixels(c);
   const largest = findCorners(detectRegion(img, KEYS.magenta.hue).mask, W, Hh);
-  const merged = findCorners(detectRegion(img, KEYS.magenta.hue, true).mask, W, Hh);
+  const found = detectCards(img);
+  const merged = found.cards.find((k) => k.role === 'back')?.corners;
+  const front = found.cards.find((k) => k.role === 'front')?.corners;
   const errOf = (q) => (q ? Math.max(...q.map((p, i) => dist(p, backQ[i]))) : Infinity);
+  check('hand: two cards found', found.found && found.cards.length === 2, found.cards.map((k) => k.role).join(', '));
   check('hand: back corners from merged pieces within 4px', errOf(merged) <= 4, `merged ${errOf(merged).toFixed(2)}px, largest piece only ${errOf(largest).toFixed(0)}px`);
-  const front = findCorners(detectRegion(img, KEYS.green.hue).mask, W, Hh);
   const fErr = front ? Math.max(...front.map((p, i) => dist(p, frontQ[i]))) : Infinity;
   check('hand: front corners within 4px despite the thumb', fErr <= 4, `${fErr.toFixed(2)}px`);
 
@@ -299,6 +302,36 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
     const err = found ? Math.max(...found.map((p, i) => dist(p, q[i]))) : Infinity;
     check(`hidden ${label} corner found within 4px`, err <= 4, `max err ${err.toFixed(2)}px`);
   }
+}
+
+// 12. Pile: four fanned cards, stacked green, magenta, green, magenta from the bottom. Each card
+// but the top one has a corner hidden under the next, and the edge hiding it is a long straight line.
+{
+  const truth = [
+    ['front', [[80, 322], [335, 190], [523, 557], [268, 689]]],
+    ['back', [[385, 205], [678, 232], [645, 640], [352, 613]]],
+    ['front', [[540, 307], [806, 410], [658, 800], [392, 697]]],
+    ['back', [[520, 570], [773, 677], [612, 1048], [359, 941]]],
+  ];
+  const c = canvas(W, Hh), x = c.getContext('2d');
+  x.fillStyle = '#efece6';
+  x.fillRect(0, 0, W, Hh);
+  for (const [role, q] of truth) {
+    x.beginPath(); q.forEach(([px, py], i) => (i ? x.lineTo(px, py) : x.moveTo(px, py))); x.closePath();
+    x.fillStyle = role === 'front' ? '#00ff00' : '#ff00ff';
+    x.fill();
+  }
+  const found = detectCards(pixels(c));
+  check('pile: 4 cards found, 2 fronts and 2 backs', found.cards.length === 4 && found.cards.filter((k) => k.role === 'front').length === 2,
+    found.cards.map((k) => k.role).join(', '));
+  // Match each truth card to the found card of the same role nearest its centre.
+  const centre = (q) => [q.reduce((s, p) => s + p[0], 0) / 4, q.reduce((s, p) => s + p[1], 0) / 4];
+  const errs = truth.map(([role, q]) => {
+    const [cx, cy] = centre(q);
+    const k = found.cards.filter((f) => f.role === role).sort((a, b) => dist(centre(a.corners), [cx, cy]) - dist(centre(b.corners), [cx, cy]))[0];
+    return k ? Math.max(...k.corners.map((p, i) => dist(p, q[i]))) : Infinity;
+  });
+  check('pile: every card within 4px, hidden corners included', errs.every((e) => e <= 4), errs.map((e) => `${e.toFixed(1)}px`).join(', '));
 }
 
 const pass = results.every((r) => r.ok);

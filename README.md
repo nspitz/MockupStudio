@@ -13,7 +13,7 @@ Live: https://nspitz.github.io/MockupStudio/
 3. Open the page, choose your design (front) and the scene.
 4. Check the corners (drag to fine-tune), use **Compare** to confirm the text, then **Download JPG** or **Save / Share** on a phone.
 
-Pile and Hand scenes use two keys, green for fronts and magenta for backs. **Hand** works: choose the back design too, and the app fills both cards (switch between their corners with Front / Back). Pile mode isn't built yet.
+Pile and Hand scenes use two keys, green for fronts and magenta for backs. Choose the back design too, and the app fills every card: green with the front, magenta with the back. One button per card switches which corners you're dragging. A card split in two by a card of its own colour lying across it reads as two cards; the Pile prompt avoids that layout.
 
 ## Design Fidelity Rules
 
@@ -26,7 +26,8 @@ Plain HTML + ES modules, no build step.
 | File | Job |
 |---|---|
 | `js/keying.js` | key-colour mask, largest region, small-hole fill |
-| `js/corners.js`, `js/geometry.js` | hull → 4 corners, homographies |
+| `js/corners.js`, `js/geometry.js` | hull → 4 corners (hidden ones too), homographies |
+| `js/detect.js` | several cards in one scene: green fronts, magenta backs |
 | `js/compose.js` | warp, lighting, paper texture, despill, Compare flattening |
 | `js/export.js` | crops (R4), output size, JPG |
 | `js/handles.js` | draggable corners + magnifier |
@@ -37,4 +38,4 @@ Plain HTML + ES modules, no build step.
 
 ## Tests
 
-Serve the folder (`python -m http.server 8765`) and open `tests/selftest.html` — the title reads `SELFTEST PASS` or `SELFTEST FAIL`. Headless: `chrome --headless=new --dump-dom http://127.0.0.1:8765/tests/selftest.html`. `tests/realscene.html` runs a real scene + design from `tests/local/` (git-ignored, never published); `tests/realhand.html` does the same for a two-key hand scene (`hand-scene.jpg`, `hand-front.jpg`, `hand-back.jpg`). Use a fresh `--user-data-dir` for headless runs, or Chrome serves cached modules.
+Serve the folder (`python -m http.server 8765`) and open `tests/selftest.html` — the title reads `SELFTEST PASS` or `SELFTEST FAIL`. Headless: `chrome --headless=new --dump-dom http://127.0.0.1:8765/tests/selftest.html`. `tests/realscene.html` runs a real scene + design from `tests/local/` (git-ignored, never published); `tests/realmulti.html?set=hand` (or `?set=pile`, add `&outline` to draw the detected cards) does the same for a two-key scene (`<set>-scene.jpg`, `<set>-front.jpg`, `<set>-back.jpg`). Use a fresh `--user-data-dir` for headless runs, or Chrome serves cached modules.

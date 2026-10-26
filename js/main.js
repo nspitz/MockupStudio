@@ -4,6 +4,7 @@ import { RULES } from './rules.js';
 import { loadImage, scaledCanvas, fitLongSide, pixels, slugify } from './files.js';
 import { KEYS, detectRegion, sampleHue } from './keying.js';
 import { findCorners, defaultCorners } from './corners.js';
+import { detectCards } from './detect.js';
 import { rotateCorners, quadSize } from './geometry.js';
 import { designLevels, renderComposite, flattenCard } from './compose.js';
 import { cropFor, outputSize, toJpegBlob, downloadBlob, canShareFiles, shareBlob } from './export.js';
@@ -12,8 +13,6 @@ import { createPromptPanel } from './promptPanel.js';
 
 const PREVIEW_LONG = 1400;
 const DETECT_LONG = 1000;
-// A back card must fill at least this much of its outline; scattered pink balloons don't.
-const BACK_MIN_FILL = 0.25;
 
 const $ = (id) => document.getElementById(id);
 
@@ -21,7 +20,7 @@ const state = {
   front: null, // { design, levels }
   back: null,
   scene: null,
-  // One card, or front (green) + back (magenta) in a hand shot: [{ role, key: { name, hue }, corners }].
+  // One card, or green fronts + magenta backs in a hand or pile shot: [{ role, key: { name, hue }, corners }].
   cards: [],
   active: 0,
   key: { name: 'green', hue: KEYS.green.hue },
@@ -32,7 +31,7 @@ const state = {
   exportCount: 0,
 };
 
-const two = () => state.cards.length === 2;
+const two = () => state.cards.length > 1;
 const designOf = (card) => (card.role === 'back' ? state.back : state.front);
 const allCorners = () => state.cards.flatMap((c) => c.corners);
 
@@ -111,10 +110,23 @@ function syncHandles() {
   handles.setOthers(state.cards.filter((_, i) => i !== state.active).map((c) => c.corners));
 }
 
+// "Front" / "Back" for a hand shot; numbered (Front 1, Back 2…) when there are more of a kind.
+function cardLabel(card) {
+  const same = state.cards.filter((c) => c.role === card.role);
+  const name = card.role === 'back' ? 'Back' : 'Front';
+  return same.length > 1 ? `${name} ${same.indexOf(card) + 1}` : `${name} (${card.key.name})`;
+}
+
 function updateModeUI() {
   $('cardRow').hidden = !two();
   $('keyRow').hidden = two();
-  for (const b of $('cardSeg').querySelectorAll('button')) b.setAttribute('aria-pressed', String(Number(b.dataset.card) === state.active));
+  $('cardSeg').replaceChildren(...(two() ? state.cards : []).map((c, i) => {
+    const b = document.createElement('button');
+    b.dataset.card = i;
+    b.textContent = cardLabel(c);
+    b.setAttribute('aria-pressed', String(i === state.active));
+    return b;
+  }));
 }
 
 // ---- Files ---------------------------------------------------------------
@@ -183,34 +195,28 @@ function detect(autoKey) {
   const img = pixels(long > DETECT_LONG ? scaledCanvas(s, w, h) : s);
   const k = s.width / w;
   const toScene = (q) => q && q.map(([x, y]) => [x * k, y * k]);
-  const quadArea = (q) => Math.abs(q.reduce((a, p, i) => { const n = q[(i + 1) % 4]; return a + p[0] * n[1] - n[0] * p[1]; }, 0)) / 2;
   setHint('');
 
   let best;
   if (autoKey) {
+    const multi = detectCards(img);
+    if (multi.found && state.back) {
+      state.cards = multi.cards.map((c) => ({ role: c.role, key: c.key, corners: toScene(c.corners) }));
+      state.active = 0;
+      state.key = state.cards[0].key;
+      updateModeUI();
+      updateKeySeg();
+      const fronts = state.cards.filter((c) => c.role === 'front').length, backs = state.cards.length - fronts;
+      const what = state.cards.length === 2 ? 'Front (green) and back (magenta) found' : `${state.cards.length} cards found: ${fronts} front${fronts > 1 ? 's' : ''} (green), ${backs} back${backs > 1 ? 's' : ''} (magenta)`;
+      setStatus(`${what}. Check each card's corners with the buttons below.${state.front ? '' : ' Now choose the front design.'}`, 'ok');
+      syncHandles();
+      orientationHint();
+      schedule();
+      return;
+    }
+    if (multi.found) setHint('This looks like a hand or pile scene with magenta back cards. Choose the back design to fill them.');
     const green = detectRegion(img, KEYS.green.hue);
     const magenta = detectRegion(img, KEYS.magenta.hue);
-    if (green.area / (w * h) >= 0.005 && magenta.area / (w * h) >= 0.005) {
-      const back = detectRegion(img, KEYS.magenta.hue, true);
-      const fq = findCorners(green.mask, w, h), bq = findCorners(back.mask, w, h);
-      const isCard = bq && back.area / quadArea(bq) >= BACK_MIN_FILL;
-      if (fq && isCard && state.back) {
-        state.cards = [
-          { role: 'front', key: { name: 'green', hue: KEYS.green.hue }, corners: toScene(fq) },
-          { role: 'back', key: { name: 'magenta', hue: KEYS.magenta.hue }, corners: toScene(bq) },
-        ];
-        state.active = 0;
-        state.key = state.cards[0].key;
-        updateModeUI();
-        updateKeySeg();
-        setStatus(`Front (green) and back (magenta) found. Check each card's corners with Front / Back.${state.front ? '' : ' Now choose the front design.'}`, 'ok');
-        syncHandles();
-        orientationHint();
-        schedule();
-        return;
-      }
-      if (fq && isCard && !state.back) setHint('This looks like a hand or pile scene with a magenta back card. Choose the back design to fill it.');
-    }
     best = green.area >= magenta.area ? { ...green, key: { name: 'green', hue: KEYS.green.hue } } : { ...magenta, key: { name: 'magenta', hue: KEYS.magenta.hue } };
     state.key = best.key;
     updateKeySeg();
@@ -246,7 +252,7 @@ function orientationHint() {
     return (q.w > q.h) !== (d.width > d.height);
   });
   if (!off.length) return setHint('');
-  const which = two() ? ` (${off.map((c) => c.role).join(' and ')})` : '';
+  const which = two() ? ` (${off.map(cardLabel).join(', ')})` : '';
   setHint(`The card's shape doesn't match the design's orientation${which}. Tap Rotate design.`);
 }
 
@@ -371,7 +377,7 @@ $('compareBtn').addEventListener('click', async () => {
     original.width = flat.width;
     original.height = flat.height;
     original.getContext('2d').drawImage(d, 0, 0, flat.width, flat.height);
-    const label = two() ? `${card.role === 'back' ? 'Back' : 'Front'}: ` : '';
+    const label = two() ? `${cardLabel(card)}: ` : '';
     figures.push(figure(original, `${label}your original file`), figure(flat, `${label}flattened from the mockup`));
   });
   $('compareBody').replaceChildren(...figures);

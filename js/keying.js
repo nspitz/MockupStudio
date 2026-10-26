@@ -68,26 +68,40 @@ export function largestComponent(mask, w, h) {
   return { mask: out, area: bestSize };
 }
 
-// Every component at least `minShare` of the largest one, merged. A back card seen around
-// the front card shows up in separate pieces; dropping all but the largest loses its corners.
-export function mergedComponents(mask, w, h, minShare = 0.01) {
-  const seen = new Uint8Array(mask.length), stack = new Int32Array(mask.length);
+// One mask per card of this key colour. A piece at least `bigShare` of the colour's largest piece
+// (and `minCoverage` of the image) is a card; smaller pieces down to 1% of the largest join the
+// nearest card (slivers of a back card showing around the front one); the rest is noise.
+// Cards come top to bottom. Also returns the raw candidates, for "other cards" masks.
+export function cardPieces(img, keyHue, minCoverage = 0.005, bigShare = 0.25) {
+  const { width: w, height: h } = img;
+  const candidates = keyCandidates(img, keyHue);
+  const seen = new Uint8Array(candidates.length), stack = new Int32Array(candidates.length);
   const comps = [];
-  for (let i = 0; i < mask.length; i++) {
-    if (!mask[i] || seen[i]) continue;
-    let size = 0;
-    flood(mask, w, h, i, 1, seen, stack, () => size++);
-    comps.push([i, size]);
+  for (let i = 0; i < candidates.length; i++) {
+    if (!candidates[i] || seen[i]) continue;
+    const c = { start: i, size: 0, sx: 0, sy: 0 };
+    flood(candidates, w, h, i, 1, seen, stack, (p) => { c.size++; c.sx += p % w; c.sy += (p / w) | 0; });
+    comps.push(c);
   }
-  const biggest = Math.max(0, ...comps.map((c) => c[1]));
-  const out = new Uint8Array(mask.length), mark = new Uint8Array(mask.length);
-  let area = 0;
-  for (const [start, size] of comps) {
-    if (size < biggest * minShare) continue;
-    flood(mask, w, h, start, 1, mark, stack, (p) => { out[p] = 1; });
-    area += size;
+  const biggest = Math.max(0, ...comps.map((c) => c.size));
+  const centre = (c) => [c.sx / c.size, c.sy / c.size];
+  const cards = comps.filter((c) => c.size >= biggest * bigShare && c.size >= w * h * minCoverage).map((c) => ({ parts: [c], c: centre(c) }));
+  for (const c of comps) {
+    if (cards.some((k) => k.parts[0] === c) || c.size < biggest * 0.01 || !cards.length) continue;
+    const [x, y] = centre(c);
+    cards.reduce((a, k) => (Math.hypot(k.c[0] - x, k.c[1] - y) < Math.hypot(a.c[0] - x, a.c[1] - y) ? k : a)).parts.push(c);
   }
-  return { mask: out, area };
+  const mark = new Uint8Array(candidates.length);
+  const pieces = cards.map(({ parts, c }) => {
+    const mask = new Uint8Array(candidates.length);
+    for (const p of parts) flood(candidates, w, h, p.start, 1, mark, stack, (q) => { mask[q] = 1; });
+    const size = parts.reduce((s, p) => s + p.size, 0);
+    fillSmallHoles(mask, w, h, Math.max(4, size * 0.003));
+    let area = 0;
+    for (let i = 0; i < mask.length; i++) area += mask[i];
+    return { mask, area, cy: c[1], cx: c[0] };
+  }).sort((a, b) => a.cy - b.cy || a.cx - b.cx);
+  return { pieces, candidates };
 }
 
 // Fills enclosed gaps up to maxHole pixels (specks of noise). Larger gaps stay
@@ -108,11 +122,9 @@ export function fillSmallHoles(mask, w, h, maxHole) {
   return mask;
 }
 
-// merge: keep every sizeable piece of the key colour (a partly hidden back card), not just the largest.
-export function detectRegion(img, keyHue, merge = false) {
+export function detectRegion(img, keyHue) {
   const { width: w, height: h } = img;
-  const candidates = keyCandidates(img, keyHue);
-  const { mask, area } = merge ? mergedComponents(candidates, w, h) : largestComponent(candidates, w, h);
+  const { mask, area } = largestComponent(keyCandidates(img, keyHue), w, h);
   fillSmallHoles(mask, w, h, Math.max(4, area * 0.003));
   let filled = 0;
   for (let i = 0; i < mask.length; i++) filled += mask[i];

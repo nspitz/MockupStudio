@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-26 — Step 3: pile mode
+
+- Any number of green fronts and magenta backs in one scene. Each key colour is split into cards: a piece at least 25% of that colour's largest is a card, smaller pieces down to 1% join the nearest card (the back card's slivers in a hand shot), and the rest is noise. Every card must fill 25% of its outline.
+- Corners under another card: the hull of a covered card runs along the edge of the card on top, which looks just like a real edge. With the other cards' pixels known, hull edges whose both ends touch another card are left out and the real edges are extended to meet. That reading is kept only when it explains the scene clearly better (its own key pixels outside it, plus bare background inside it, at most half the alternative's), so cards on top keep their exact corners.
+- New `js/detect.js` (multi-card detection shared by the app and the real-scene test); `mergedComponents` replaced by `cardPieces`. One corner button per card (Front 1, Front 2, Back 1, Back 2); the others are dashed outlines. Compare shows every pair.
+- Tests: 39 self-checks passing (new: synthetic 4-card pile with 3 hidden corners, all within 2.2px). `tests/realhand.*` became `tests/realmulti.html?set=hand|pile`; on the real Gemini pile scene all 4 cards are found and 0 key pixels are left, and the hand scene is unchanged.
+
 ## 2026-10-26 — Step 4: hand mode
 
 - New picker: Design (back). A scene with a sizeable green card and a magenta card that fills at least 25% of its outline becomes a hand shot: front design on green, back design on magenta. Without a back design the app says to choose one; pink balloons in a Stand scene don't count as a card.
