@@ -11,7 +11,7 @@ import { cropFor, outputSize } from '../js/export.js';
 import { pixels } from '../js/files.js';
 import { NAMED, extractColours, chooseKey } from '../js/palette.js';
 import { buildPrompt, joinList } from '../js/prompt.js';
-import { parsePack, packColours } from '../js/pack.js';
+import { parsePack, packColours, packProps } from '../js/pack.js';
 import { importLibrary, listDesigns, getDesign } from '../js/library.js';
 
 const results = [];
@@ -168,12 +168,15 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
   const base = { surface: 'a white linen tablecloth', props: ['a loose silk ribbon', 'silver tinsel'], colours: ['deep red', 'cream'], key: 'green' };
   const main = buildPrompt({ ...base, type: 'main' });
   check('main prompt', main.includes('flat-lay') && main.includes('portrait 3:4') && main.includes('on a white linen tablecloth')
-    && main.includes('evenly spaced: a loose silk ribbon and silver tinsel.') && main.includes('partly cropped')
+    && main.includes('casually set down: a loose silk ribbon and silver tinsel.') && main.includes('mostly cut off by the frame')
+    && main.includes('clearly lopsided') && main.includes('computer-generated') && main.includes('long side vertical')
+    && !main.includes('Only a little bare surface')
     && main.includes('passes under, behind or over the card') && main.includes('true real-world size') && main.includes('two thirds of the frame')
     && main.includes('not washed out') && main.includes('palette of deep red and cream') && !main.includes('scatter')
     && main.includes('(#00FF00)') && main.includes('front surface of the card') && main.includes('No text'), main);
   const stand = buildPrompt({ ...base, type: 'stand', key: 'magenta' });
-  check('stand prompt', stand.includes('acrylic stand') && stand.includes('(#FF00FF)') && stand.includes('magenta'), stand);
+  check('stand prompt', stand.includes('acrylic stand') && stand.includes('(#FF00FF)') && stand.includes('magenta')
+    && stand.includes('evenly spaced: a loose silk ribbon and silver tinsel.') && !stand.includes('lopsided'), stand);
   const phone = buildPrompt({ ...base, type: 'phone', props: [] });
   check('phone prompt', phone.includes('smartphone') && phone.includes('ENTIRE phone screen') && phone.includes('on top of the screen')
     && phone.includes('no other props') && !phone.includes('palette'), phone);
@@ -197,6 +200,9 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
 {
   const p = parsePack('{"name":"Lace","surface":"a cream linen cloth","props":["a red velvet ribbon"," ",""],"scatter":" gold stars ","party":"Christmas shower","colours":["Deep red","not-a-colour"]}');
   check('pack parses and drops blank props', p.name === 'Lace' && p.props.length === 1 && p.wall === '' && p.party === 'Christmas shower' && p.scatter === 'gold stars', JSON.stringify(p));
+  const m = parsePack('{"props":["a red velvet ribbon"],"mainProps":["a thin red ribbon",""]}');
+  check('mainProps: Main only, others fall back to props', packProps(m, 'main')[0] === 'a thin red ribbon' && m.mainProps.length === 1
+    && packProps(m, 'stand')[0] === 'a red velvet ribbon' && packProps(p, 'main')[0] === 'a red velvet ribbon', JSON.stringify(m));
   const cs = packColours(p);
   check('pack colours: known name gets rgb, unknown does not', !!cs[0].rgb && cs[1].rgb === null, JSON.stringify(cs));
   const err = (t) => { try { parsePack(t); return ''; } catch (e) { return e.message; } };

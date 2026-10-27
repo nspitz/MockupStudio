@@ -17,7 +17,9 @@ export const TYPES = {
   main: {
     label: 'Main',
     keys: 1,
-    template: `Overhead, straight-down flat-lay product photo, portrait 3:4. One blank 5x7 inch invitation card, filling about two thirds of the frame's width, lies flat, centred, square to the frame and fully visible on {SURFACE}. {PROPS} ${MOOD}`,
+    // Props pushed to the frame edges and mostly cut off, so the card has open space (see EDGE_PROPS).
+    edgeProps: true,
+    template: `Overhead, straight-down flat-lay product photo, portrait 3:4. One blank 5x7 inch invitation card, upright in portrait orientation with its long side vertical, filling about two thirds of the frame's width, lies flat, centred, square to the frame and fully visible on {SURFACE}. {PROPS} ${MOOD}`,
   },
   hand: {
     label: 'Hand',
@@ -47,6 +49,10 @@ export function joinList(items) {
   return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 }
 
+// Main: props crowding the card in matched patches read as staged, and heavy props read as too much.
+// Pushed to the edges, mostly out of frame, lopsided, and with real worn texture instead of smooth AI surfaces.
+const EDGE_PROPS = (list) => `The props sit right at the edges of the frame, each one mostly cut off by the frame so only part of it reaches into the picture, styled loosely as if casually set down: ${list}. The arrangement is clearly lopsided: the props gather more heavily along one side and around one corner, the opposite side stays lighter, and nothing mirrors or balances anything else. Open surface shows between the props and the card. Every prop is a real, photographed object at its true real-world size next to a 5x7 inch card, never oversized or toy-like. Each one looks natural, slightly imperfect and lived-in, with real material texture such as visible knit stitches, wood grain, creased fabric and soft fraying edges; nothing glossy, plastic, overly smooth, perfectly clean, kitsch or computer-generated looking. No prop or ribbon passes under, behind or over the card.`;
+
 const keyText = (k) => `pure chroma-key ${KEYS[k].label.toLowerCase()} colour (${KEYS[k].hex})`;
 
 // props: prompt phrases; colours: colour names; scatter: a sparse sprinkle around the card ('' for none);
@@ -56,7 +62,10 @@ export function buildPrompt({ type, surface, props, colours, key, scatter = '', 
   if (t.layout) return '';
   const hero = t.keys === 2 ? 'the cards' : t.target === 'screen' ? 'the phone' : 'the card';
   let propsText = 'Keep the surface simple, with no other props.';
-  if (props.length) {
+  if (props.length && t.edgeProps) {
+    propsText = EDGE_PROPS(joinList(props));
+    if (colours.length) propsText += ` Props in a palette of ${joinList(colours)}.`;
+  } else if (props.length) {
     // Close, cropped, overlapping and uneven: one prop per corner with bare surface between reads as staged.
     propsText = `A few props, styled loosely and asymmetrically as if casually set down, sit close around ${hero} and run off the edges of the frame, so each one is partly cropped. They overlap each other and are never lined up, centred or evenly spaced: ${joinList(props)}. Every prop is a real, photographed object at its true real-world size next to a 5x7 inch card, never oversized or toy-like. Only a little bare surface shows. No prop or ribbon passes under, behind or over ${hero}; each stays clear of its edges.`;
     if (colours.length) propsText += ` Props in a palette of ${joinList(colours)}.`;

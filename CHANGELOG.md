@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-27 — Main gets its own props and an edge-of-frame prompt
+
+- Main's prompt now puts the props right at the frame edges, mostly cut off, in a clearly lopsided arrangement with open surface between props and card. The props must look real and worn (knit stitches, wood grain, creases, fraying), never glossy, smooth, kitsch or computer-generated. The card is described as upright with its long side vertical. "Only a little bare surface shows" and "stays clear of its edges" are dropped from Main. Why: Main came out staged (props kept a distance from the card, which lay sideways and small), then too full (heavy greenery filling the frame). Stand and Phone keep the existing wording.
+- Props packs gain an optional `mainProps`, a lighter list used only by Main (`packProps(pack, type)`); without it Main uses `props`.
+- Tests: self-checks pass (new: `mainProps` fallback; Main edge wording; Stand keeps the old wording).
+
 ## 2026-10-27 — Hidden back corner under a thumb; cleaner card edges
 
 - Detection: in a wide-fan Hand scene, the back card's bottom-left corner was hidden under the front card, and the thumb on the front card sat inside that hidden part. The correct reading (visible edges extended under the front card) was rejected because the thumb counted as bare wall, so the back design was warped into a trapezoid. `detectCards` now makes a second pass where other cards' whole outlines count as cover when judging the fit (`findCorners(…, cover)`); as edge evidence it still uses key pixels only, so a card underneath can't make real edges look hidden. The old real hand and pile scenes detect identically.

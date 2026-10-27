@@ -16,12 +16,19 @@ export function parsePack(text) {
     name: str(raw.name) || 'Unnamed design',
     surface: str(raw.surface),
     props,
+    // Optional lighter set for Main only; empty means Main uses props.
+    mainProps: Array.isArray(raw.mainProps) ? raw.mainProps.map(str).filter(Boolean) : [],
     // Sparse small pieces on the surface around the card (stars, confetti); never on it.
     scatter: str(raw.scatter),
     party: str(raw.party),
     wall: str(raw.wall),
     colours: Array.isArray(raw.colours) ? raw.colours.map(str).filter(Boolean) : [],
   };
+}
+
+// The pack's props for one shot type: Main takes mainProps when the pack has them.
+export function packProps(pack, type) {
+  return type === 'main' && pack.mainProps?.length ? pack.mainProps : pack.props;
 }
 
 // Pack colour names as chips. Names from the palette list get a swatch and count for the key choice.

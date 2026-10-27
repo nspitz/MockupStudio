@@ -4,7 +4,7 @@ import { PROP_GROUPS, SURFACES } from './props.js';
 import { extractColours, chooseKey } from './palette.js';
 import { TYPES, buildPrompt } from './prompt.js';
 import { loadPrefs, savePrefs } from './prefs.js';
-import { parsePack, packColours } from './pack.js';
+import { parsePack, packColours, packProps } from './pack.js';
 import { KEYS } from './keying.js';
 
 const $ = (id) => document.getElementById(id);
@@ -84,7 +84,7 @@ export function createPromptPanel({ onType = () => {} } = {}) {
     if (prefs.pack) {
       const fs = make('fieldset', { class: 'pack-props' });
       fs.append(make('legend', {}, 'This design'));
-      prefs.pack.props.forEach((phrase, i) => fs.append(checkbox({ 'data-pack': i }, phrase, !sel().packOff.includes(i))));
+      packProps(prefs.pack, type).forEach((phrase, i) => fs.append(checkbox({ 'data-pack': i }, phrase, !sel().packOff.includes(i))));
       sets.push(fs);
     }
     const groups = [...PROP_GROUPS];
@@ -123,7 +123,7 @@ export function createPromptPanel({ onType = () => {} } = {}) {
     if (s.surface === 'pack') surface = prefs.pack.surface;
     else if (s.surface === 'custom') surface = s.surfaceOther.trim() || 'a plain surface';
     else surface = SURFACES.find((x) => x.id === s.surface)?.phrase || SURFACES[0].phrase;
-    const props = prefs.pack ? prefs.pack.props.filter((_, i) => !s.packOff.includes(i)) : [];
+    const props = prefs.pack ? packProps(prefs.pack, type).filter((_, i) => !s.packOff.includes(i)) : [];
     props.push(...allProps().filter((p) => s.props.includes(p.id)).map((p) => p.phrase));
     if (s.other.trim()) props.push(s.other.trim());
     $('promptText').value = buildPrompt({

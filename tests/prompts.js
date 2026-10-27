@@ -3,7 +3,7 @@
 // tests/local/batch/packs.json: [{ slug, pack }]. Writes [{ slug, name, key, pack, prompts: [{ type, text }] }].
 
 import { TYPES, buildPrompt } from '../js/prompt.js';
-import { parsePack, packColours } from '../js/pack.js';
+import { parsePack, packColours, packProps } from '../js/pack.js';
 import { chooseKey } from '../js/palette.js';
 
 const BACKDROP = { stand: 'party', hand: 'wall' };
@@ -17,7 +17,7 @@ const results = packs.map(({ slug, pack: raw }) => {
   const prompts = Object.keys(TYPES).filter((type) => !TYPES[type].layout).map((type) => ({
     type,
     text: buildPrompt({
-      type, surface: pack.surface || 'a plain surface', props: type === 'hand' ? [] : pack.props,
+      type, surface: pack.surface || 'a plain surface', props: type === 'hand' ? [] : packProps(pack, type),
       scatter: type === 'hand' ? '' : pack.scatter,
       colours: pack.colours, key, backdrop: BACKDROP[type] ? pack[BACKDROP[type]] : '',
     }),
