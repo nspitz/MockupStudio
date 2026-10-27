@@ -128,6 +128,7 @@ export function createPromptPanel({ onType = () => {} } = {}) {
     if (s.other.trim()) props.push(s.other.trim());
     $('promptText').value = buildPrompt({
       type, surface, props, key, backdrop: s.backdrop,
+      scatter: type === 'hand' ? '' : prefs.pack?.scatter || '',
       colours: colours.filter((c) => c.on).map((c) => c.name),
     });
     const two = TYPES[type].keys === 2;

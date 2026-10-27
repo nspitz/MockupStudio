@@ -168,19 +168,22 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
   const base = { surface: 'a white linen tablecloth', props: ['a loose silk ribbon', 'silver tinsel'], colours: ['deep red', 'cream'], key: 'green' };
   const main = buildPrompt({ ...base, type: 'main' });
   check('main prompt', main.includes('flat-lay') && main.includes('portrait 3:4') && main.includes('on a white linen tablecloth')
-    && main.includes('only an edge or a corner of each shows: a loose silk ribbon and silver tinsel.') && main.includes('open surface around the card')
-    && main.includes('not washed out') && main.includes('palette of deep red and cream')
+    && main.includes('evenly spaced: a loose silk ribbon and silver tinsel.') && main.includes('partly cropped')
+    && main.includes('passes under, behind or over the card') && main.includes('true real-world size') && main.includes('two thirds of the frame')
+    && main.includes('not washed out') && main.includes('palette of deep red and cream') && !main.includes('scatter')
     && main.includes('(#00FF00)') && main.includes('front surface of the card') && main.includes('No text'), main);
   const stand = buildPrompt({ ...base, type: 'stand', key: 'magenta' });
   check('stand prompt', stand.includes('acrylic stand') && stand.includes('(#FF00FF)') && stand.includes('magenta'), stand);
   const phone = buildPrompt({ ...base, type: 'phone', props: [] });
-  check('phone prompt', phone.includes('smartphone') && phone.includes('ENTIRE phone screen') && phone.includes('overlaps the screen')
+  check('phone prompt', phone.includes('smartphone') && phone.includes('ENTIRE phone screen') && phone.includes('on top of the screen')
     && phone.includes('no other props') && !phone.includes('palette'), phone);
   check('list joining', joinList(['a']) === 'a' && joinList(['a', 'b', 'c']) === 'a, b and c');
   check('main prompt is head-on', main.includes('straight-down') && main.includes('square to the frame'), main);
   const party = buildPrompt({ ...base, type: 'stand', backdrop: 'cosy Christmas baby shower' });
   check('stand prompt uses the party', party.includes('a cosy Christmas baby shower softly blurred') && !party.includes('{'), party);
   check('stand prompt falls back to "party"', stand.includes('with a party softly blurred'), stand);
+  const scattered = buildPrompt({ ...base, type: 'main', scatter: 'small gold wooden stars' });
+  check('scatter: sparse, around the card, never on it', scattered.includes('A sparse scatter of small gold wooden stars lies on the surface around the card, a few pieces only, never on it.'), scattered);
   check('pile has no Gemini prompt (the app lays it out)', buildPrompt({ ...base, type: 'pile' }) === '');
   const hand = buildPrompt({ ...base, type: 'hand', backdrop: '' });
   check('hand prompt: landscape, fanned wide, front green, back magenta, wall fallback, no props', hand.includes('landscape 4:3')
@@ -192,8 +195,8 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
 
 // 9. Props pack: parses a pack, rejects junk with a readable message, names known colours.
 {
-  const p = parsePack('{"name":"Lace","surface":"a cream linen cloth","props":["a red velvet ribbon"," ",""],"party":"Christmas shower","colours":["Deep red","not-a-colour"]}');
-  check('pack parses and drops blank props', p.name === 'Lace' && p.props.length === 1 && p.wall === '' && p.party === 'Christmas shower', JSON.stringify(p));
+  const p = parsePack('{"name":"Lace","surface":"a cream linen cloth","props":["a red velvet ribbon"," ",""],"scatter":" gold stars ","party":"Christmas shower","colours":["Deep red","not-a-colour"]}');
+  check('pack parses and drops blank props', p.name === 'Lace' && p.props.length === 1 && p.wall === '' && p.party === 'Christmas shower' && p.scatter === 'gold stars', JSON.stringify(p));
   const cs = packColours(p);
   check('pack colours: known name gets rgb, unknown does not', !!cs[0].rgb && cs[1].rgb === null, JSON.stringify(cs));
   const err = (t) => { try { parsePack(t); return ''; } catch (e) { return e.message; } };
@@ -358,6 +361,26 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
   let rejected = '';
   try { await importLibrary(new File(['{"format":"other"}'], 'x.json')); } catch (e) { rejected = e.message; }
   check('library: rejects a file that is not a library', /library file/.test(rejected), rejected);
+}
+
+// 15. Wide-fan hand: the back card's bottom-left corner is hidden under the front card, and the thumb
+// on the front card sits inside that hidden part. The thumb must count as covered, not as bare wall.
+{
+  const backQ = [[600, 100], [950, 250], [760, 730], [410, 580]];
+  const frontQ = [[160, 180], [560, 140], [600, 680], [200, 720]];
+  const c = canvas(1200, 900), x = c.getContext('2d');
+  x.fillStyle = '#e6ded3';
+  x.fillRect(0, 0, 1200, 900);
+  for (const [q, hex] of [[backQ, '#ff00ff'], [frontQ, '#00ff00']]) {
+    x.beginPath(); q.forEach(([px, py], i) => (i ? x.lineTo(px, py) : x.moveTo(px, py))); x.closePath();
+    x.fillStyle = hex;
+    x.fill();
+  }
+  x.fillStyle = '#d9a383';
+  x.beginPath(); x.ellipse(520, 600, 40, 90, 0, 0, 7); x.fill();
+  const back = detectCards(pixels(c)).cards.find((k) => k.role === 'back')?.corners;
+  const err = back ? Math.max(...back.map((p, i) => dist(p, backQ[i]))) : Infinity;
+  check('wide-fan hand: back corner under the front card found despite the thumb', err <= 4, `${err.toFixed(1)}px`);
 }
 
 // 14. Pile layout: cards cover the whole frame, the hero is whole and matches its design, and a

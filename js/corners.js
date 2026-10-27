@@ -6,7 +6,9 @@ import { convexHull, simplifyHull, largestQuad, orderCorners, polygonArea, expan
 
 // others (optional): pixels of other cards in the scene, same size as mask. With it, the edges a
 // card on top of this one draws across it are left out too, and the reading that fits best wins.
-export function findCorners(mask, w, h, others = null) {
+// cover (optional, defaults to others): what counts as hidden rather than bare table when judging
+// that fit, e.g. other cards' whole outlines so a thumb on the front card isn't read as table.
+export function findCorners(mask, w, h, others = null, cover = others) {
   // The left and right edge of each row is enough to build the hull.
   const pts = [];
   for (let y = 0; y < h; y++) {
@@ -42,7 +44,7 @@ export function findCorners(mask, w, h, others = null) {
   const under = edgeCorners(hull, quad, ([a, b]) => touches(a) && touches(b), true);
   if (!under) return best;
   const u = orderCorners(under);
-  const fit = (q) => misfit(q, mask, others, w, h);
+  const fit = (q) => misfit(q, mask, cover, w, h);
   return fit(u) < fit(best) * 0.5 ? u : best;
 }
 

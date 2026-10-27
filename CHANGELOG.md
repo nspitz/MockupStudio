@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-27 — Hidden back corner under a thumb; cleaner card edges
+
+- Detection: in a wide-fan Hand scene, the back card's bottom-left corner was hidden under the front card, and the thumb on the front card sat inside that hidden part. The correct reading (visible edges extended under the front card) was rejected because the thumb counted as bare wall, so the back design was warped into a trapezoid. `detectCards` now makes a second pass where other cards' whole outlines count as cover when judging the fit (`findCorners(…, cover)`); as edge evidence it still uses key pixels only, so a card underneath can't make real edges look hidden. The old real hand and pile scenes detect identically.
+- Despill: green and magenta keys now use classic spill suppression (only the key's channels come down), so the blank's dull side edge keeps the table's colour instead of a green or grey line. It reaches 3 scene pixels rather than 3 output pixels, and the hue window is ±70°.
+- Tests: 49 self-checks passing (new: wide-fan hand with a thumb over the hidden corner, which was 205px off before the fix and is 1.1px now).
+
+## 2026-10-27 — Prompt restyle from real listing photos
+
+- Props now sit close around the card in loose, asymmetric, overlapping groups, cropped by the frame and never evenly spaced, with only a little bare surface showing. A ribbon or sprig may tuck under the card's edge, but nothing rests on it. Main's card fills about two thirds of the frame. The light is soft side light, with a calm surface and the colour carried by the props. Why: the first restyle put one prop in each corner with bare linen between, which read as staged.
+- Props packs gain `scatter` (sparse stars or confetti around the card, never on it). Hand stays prop-free.
+- Tests: 48 self-checks passing (new: scatter; pack parsing now checks scatter; main and phone wording updated).
+
 ## 2026-10-27 — Pile as a fixed layout, landscape Hand
 
 - Pile no longer uses a Gemini scene. The app draws 12 cards from the front and back designs to a fixed layout measured off an inspiration photo (`js/layouts.js`): fronts and backs alternating, edge cards running off the frame, the hero front on top, landscape 4:3 at 2000×1500. Each card casts a soft shadow on the cards below it, which follows the Lighting slider; paper texture as before. Picking Pile hides the prompt and needs no scene, the crop setting doesn't apply, and Compare checks the hero card.

@@ -105,7 +105,9 @@ export function renderComposite({ scene, crop, outW, outH, cards, corners, rotat
 
 function prepareCard(ctx, card, crop, k, outW, outH) {
   const quad = rotateCorners(card.corners.map(([x, y]) => [(x - crop.x) * k, (y - crop.y) * k]), card.rotation || 0);
-  const box = bbox(expandQuad(quad, 3), outW, outH);
+  // Despill reach: 3 scene pixels, so an upscaled scene's edge strip is covered whole.
+  const reach = Math.max(3, Math.ceil(3 * k));
+  const box = bbox(expandQuad(quad, reach), outW, outH);
   const bw = box.x1 - box.x0, bh = box.y1 - box.y0;
   if (bw <= 1 || bh <= 1) return { quad, area: 0, box: null };
 
@@ -137,23 +139,36 @@ function prepareCard(ctx, card, crop, k, outW, outH) {
       alpha[y * bw + x] = s / 9;
     }
   }
-  return { card, quad, local, box, bw, bh, src, mask, alpha, area, medV: medianValue(region, mask) };
+  return { card, quad, local, box, bw, bh, src, mask, alpha, area, reach, medV: medianValue(region, mask) };
 }
 
-function drawCard(ctx, { card, quad, local, box, bw, bh, src, mask, alpha, medV }, lighting, texture) {
+function drawCard(ctx, { card, quad, local, box, bw, bh, src, mask, alpha, reach, medV }, lighting, texture) {
   const { keyHue, levels } = card;
   const region = ctx.getImageData(box.x0, box.y0, bw, bh);
   const base = region.data;
 
-  // Despill: within 3px of the card, take the key-coloured tint out of the scene's edge pixels.
+  // Despill: within 3 scene pixels of the card, take the key-coloured tint out of the scene's edge pixels.
   // The hue test reads the untouched scene, so a design another card already drew here is left alone.
-  const near = dilate(mask, bw, bh, 3);
+  // For green and magenta only the key's own channels come down (classic spill suppression), so the
+  // blank's dull side edge keeps the table's warm colour instead of turning into a grey line.
+  const green = hueDistance(keyHue, 120) < 30, magenta = hueDistance(keyHue, 300) < 30;
+  const near = dilate(mask, bw, bh, reach);
   for (let i = 0, p = 0; i < mask.length; i++, p += 4) {
     if (!near[i] || alpha[i] >= 1) continue;
     const sr = src[p], sg = src[p + 1], sb = src[p + 2];
     const smax = Math.max(sr, sg, sb);
-    if (!smax || (smax - Math.min(sr, sg, sb)) / smax < 0.12 || hueDistance(hue(sr, sg, sb), keyHue) > 45) continue;
+    if (!smax || (smax - Math.min(sr, sg, sb)) / smax < 0.12 || hueDistance(hue(sr, sg, sb), keyHue) > 70) continue;
     const r = base[p], g = base[p + 1], b = base[p + 2];
+    if (green) {
+      base[p + 1] = Math.min(g, (r + b) / 2);
+      continue;
+    }
+    if (magenta) {
+      const excess = Math.max(0, (r + b) / 2 - g);
+      base[p] = r - excess;
+      base[p + 2] = b - excess;
+      continue;
+    }
     const max = Math.max(r, g, b);
     const s = max ? (max - Math.min(r, g, b)) / max : 0;
     if (s < 0.12) continue;

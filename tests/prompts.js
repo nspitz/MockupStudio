@@ -1,4 +1,4 @@
-// Same pack → prompt path as promptPanel.js usePack(): pack surface, party for Stand, wall for Hand,
+// Same pack → prompt path as promptPanel.js usePack(): pack surface, scatter (not on Hand), party for Stand, wall for Hand,
 // pack colours for the palette and the single-card key.
 // tests/local/batch/packs.json: [{ slug, pack }]. Writes [{ slug, name, key, pack, prompts: [{ type, text }] }].
 
@@ -18,6 +18,7 @@ const results = packs.map(({ slug, pack: raw }) => {
     type,
     text: buildPrompt({
       type, surface: pack.surface || 'a plain surface', props: type === 'hand' ? [] : pack.props,
+      scatter: type === 'hand' ? '' : pack.scatter,
       colours: pack.colours, key, backdrop: BACKDROP[type] ? pack[BACKDROP[type]] : '',
     }),
   }));

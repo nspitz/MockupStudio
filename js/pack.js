@@ -1,4 +1,4 @@
-// A design's props pack: theme-matched surface, props, party and wall, written per design
+// A design's props pack: theme-matched surface, props, scatter, party and wall, written per design
 // outside this app and pasted in as JSON. Only text, never the design itself (R1).
 
 import { NAMED } from './palette.js';
@@ -16,6 +16,8 @@ export function parsePack(text) {
     name: str(raw.name) || 'Unnamed design',
     surface: str(raw.surface),
     props,
+    // Sparse small pieces on the surface around the card (stars, confetti); never on it.
+    scatter: str(raw.scatter),
     party: str(raw.party),
     wall: str(raw.wall),
     colours: Array.isArray(raw.colours) ? raw.colours.map(str).filter(Boolean) : [],
