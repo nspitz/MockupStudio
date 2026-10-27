@@ -6,11 +6,13 @@ import { KEYS, detectRegion, sampleHue } from './keying.js';
 import { findCorners, defaultCorners } from './corners.js';
 import { detectCards } from './detect.js';
 import { rotateCorners, quadSize } from './geometry.js';
-import { designLevels, renderComposite, flattenCard } from './compose.js';
+import { designLevels, renderComposite, renderLayout, flattenCard } from './compose.js';
 import { cropFor, outputSize, toJpegBlob, downloadBlob, canShareFiles, shareBlob } from './export.js';
 import { createHandles } from './handles.js';
 import { createPromptPanel } from './promptPanel.js';
 import { listDesigns, getDesign, importLibrary } from './library.js';
+import { TYPES } from './prompt.js';
+import { LAYOUTS, layoutSize, layoutCards } from './layouts.js';
 
 const PREVIEW_LONG = 1400;
 const DETECT_LONG = 1000;
@@ -30,6 +32,8 @@ const state = {
   texture: 0.12,
   aspect: 'original',
   exportCount: 0,
+  // A layout shot (Pile) is drawn from the designs alone; the scene and its cards are left as they were.
+  layout: null,
 };
 
 const two = () => state.cards.length > 1;
@@ -44,7 +48,12 @@ const handles = createHandles({
   onPick: pickKey,
 });
 
-const promptPanel = createPromptPanel();
+const promptPanel = createPromptPanel({
+  onType: (t) => {
+    state.layout = TYPES[t].layout || null;
+    refreshStage();
+  },
+});
 
 function setStatus(text, kind = 'info') {
   const s = $('status');
@@ -72,7 +81,30 @@ function params(crop, outW, outH) {
   };
 }
 
+// The layout's cards at outW x outH, each with its design.
+function layoutParams(outW, outH) {
+  return {
+    outW, outH, lighting: state.lighting, texture: state.texture,
+    cards: layoutCards(LAYOUTS[state.layout], outW, outH, {
+      front: { design: state.front.design.canvas, levels: state.front.levels },
+      back: { design: state.back.design.canvas, levels: state.back.levels },
+    }),
+  };
+}
+
 function renderPreview() {
+  if (state.layout) {
+    if (!ready()) return updateButtons();
+    const { w, h } = layoutSize(LAYOUTS[state.layout], PREVIEW_LONG);
+    const r = renderLayout(layoutParams(w, h));
+    const c = $('stageCanvas');
+    c.width = w;
+    c.height = h;
+    c.getContext('2d').drawImage(r.canvas, 0, 0);
+    $('stage').classList.remove('empty');
+    handles.setScene(w, h);
+    return updateButtons();
+  }
   const s = state.scene?.canvas;
   if (!s) return;
   const { w, h } = fitLongSide(s.width, s.height, PREVIEW_LONG);
@@ -86,7 +118,7 @@ function renderPreview() {
 }
 
 function updateCrop() {
-  if (!state.scene || !state.cards.length) return;
+  if (state.layout || !state.scene || !state.cards.length) return;
   const s = state.scene.canvas;
   try {
     handles.setCrop(state.aspect === 'original' ? null : cropFor(s.width, s.height, state.aspect, allCorners()));
@@ -99,6 +131,7 @@ function updateCrop() {
 }
 
 function ready() {
+  if (state.layout) return !!(state.front && state.back);
   return !!(state.front && state.scene && state.cards.length && (!two() || state.back));
 }
 
@@ -107,6 +140,11 @@ function updateButtons() {
 }
 
 function syncHandles() {
+  if (state.layout) {
+    handles.setCorners(null);
+    handles.setOthers([]);
+    return;
+  }
   handles.setCorners(state.cards[state.active]?.corners || null);
   handles.setOthers(state.cards.filter((_, i) => i !== state.active).map((c) => c.corners));
 }
@@ -119,8 +157,9 @@ function cardLabel(card) {
 }
 
 function updateModeUI() {
-  $('cardRow').hidden = !two();
-  $('keyRow').hidden = two();
+  $('cardRow').hidden = !two() || !!state.layout;
+  $('keyRow').hidden = two() || !!state.layout;
+  for (const id of ['rotateBtn', 'redetectBtn', 'aspect']) $(id).disabled = !!state.layout;
   $('cardSeg').replaceChildren(...(two() ? state.cards : []).map((c, i) => {
     const b = document.createElement('button');
     b.dataset.card = i;
@@ -128,6 +167,34 @@ function updateModeUI() {
     b.setAttribute('aria-pressed', String(i === state.active));
     return b;
   }));
+}
+
+// Switching between a layout shot and a scene shot: the scene, its cards and its handles come back as they were.
+function refreshStage() {
+  updateModeUI();
+  setHint('');
+  syncHandles();
+  if (state.layout) {
+    handles.setCrop(null);
+    if (ready()) setStatus('Pile laid out from your designs. The hero card on top is always whole; the cards around it run off the edge.', 'ok');
+    else {
+      $('stage').classList.add('empty');
+      $('placeholder').textContent = 'Choose the front and back designs to lay out the Pile.';
+      setStatus('', 'info');
+    }
+  } else {
+    $('placeholder').textContent = 'Choose a scene to start.';
+    if (!state.scene) {
+      $('stage').classList.add('empty');
+      setStatus('', 'info');
+      updateButtons();
+      return;
+    }
+    $('stage').classList.remove('empty');
+    handles.setScene(state.scene.canvas.width, state.scene.canvas.height);
+    orientationHint();
+  }
+  schedule();
 }
 
 // ---- Files ---------------------------------------------------------------
@@ -187,7 +254,8 @@ $('savedSelect').addEventListener('change', async (e) => {
     else { state.back = null; $('backName').textContent = 'Only for Hand and Pile scenes'; }
     if (d.pack) promptPanel.usePack(d.pack);
     $('savedNote').textContent = `${d.name}: front${d.back ? ', back' : ''}${d.pack ? ' and props pack' : ''} loaded.`;
-    if (state.scene) detect(true);
+    if (state.layout) refreshStage();
+    else if (state.scene) detect(true);
     else setStatus('Design loaded. Pick a shot, copy the Gemini prompt, make the scene in Gemini, then open it under Scene.', 'ok');
   } catch (err) {
     setStatus(err.message, 'error');
@@ -202,6 +270,7 @@ $('designInput').addEventListener('change', async (e) => {
   try {
     const d = await openDesign(f, 'front');
     promptPanel.setDesign(d.canvas);
+    if (state.layout) return refreshStage();
     if (Math.min(d.canvas.width, d.canvas.height) >= 1400 && !state.scene) {
       setStatus('Design loaded. Copy the Gemini prompt, make the scene in Gemini, then open it under Scene.', 'ok');
     }
@@ -218,7 +287,8 @@ $('backInput').addEventListener('change', async (e) => {
   if (!f) return;
   try {
     await openDesign(f, 'back');
-    if (state.scene && !two()) detect(true);
+    if (state.layout) refreshStage();
+    else if (state.scene && !two()) detect(true);
     else { orientationHint(); schedule(); }
   } catch (err) {
     setStatus(err.message, 'error');
@@ -235,6 +305,7 @@ $('sceneInput').addEventListener('change', async (e) => {
     $('stage').classList.remove('empty');
     handles.setScene(w, h);
     detect(true);
+    if (state.layout) refreshStage();
   } catch (err) {
     setStatus(err.message, 'error');
   }
@@ -299,6 +370,7 @@ function detect(autoKey) {
 }
 
 function orientationHint() {
+  if (state.layout) return setHint('');
   const off = state.cards.filter((c) => {
     const d = designOf(c)?.design.canvas;
     if (!d || !c.corners) return false;
@@ -373,7 +445,12 @@ for (const [id, key] of [['lighting', 'lighting'], ['texture', 'texture']]) {
 
 $('aspect').addEventListener('change', (e) => { state.aspect = e.target.value; updateCrop(); });
 
+// A layout always exports at its own shape; the crop setting only applies to scenes.
 function renderFull(aspect) {
+  if (state.layout) {
+    const { w, h } = layoutSize(LAYOUTS[state.layout]);
+    return renderLayout(layoutParams(w, h));
+  }
   const s = state.scene.canvas;
   const crop = cropFor(s.width, s.height, aspect, allCorners());
   const size = outputSize(crop);
@@ -404,7 +481,7 @@ $('downloadBtn').addEventListener('click', async () => {
 
 // Safari only allows sharing straight after a tap; if rendering took too long, the second tap shares the cached file.
 let shareCache = null;
-const signature = () => JSON.stringify([state.cards, state.rotation, state.lighting, state.texture, state.aspect, state.front.design.name, state.back?.design.name, state.scene.name]);
+const signature = () => JSON.stringify([state.layout, state.cards, state.rotation, state.lighting, state.texture, state.aspect, state.front.design.name, state.back?.design.name, state.scene?.name]);
 
 $('shareBtn').hidden = !canShareFiles();
 $('shareBtn').addEventListener('click', async () => {
@@ -424,16 +501,17 @@ $('compareBtn').addEventListener('click', async () => {
   await nextFrame();
   const r = renderFull('original');
   const figures = [];
-  state.cards.forEach((card, i) => {
-    const d = designOf(card).design.canvas;
-    const flat = flattenCard(r.canvas, r.quads[i], d.width, d.height);
+  const pair = (d, quad, label) => {
+    const flat = flattenCard(r.canvas, quad, d.width, d.height);
     const original = document.createElement('canvas');
     original.width = flat.width;
     original.height = flat.height;
     original.getContext('2d').drawImage(d, 0, 0, flat.width, flat.height);
-    const label = two() ? `${cardLabel(card)}: ` : '';
     figures.push(figure(original, `${label}your original file`), figure(flat, `${label}flattened from the mockup`));
-  });
+  };
+  // In a layout only the hero card is whole, so it is the one to compare.
+  if (state.layout) pair(state.front.design.canvas, r.quads[LAYOUTS[state.layout].cards.findIndex((c) => c.hero)], 'Hero card: ');
+  else state.cards.forEach((card, i) => pair(designOf(card).design.canvas, r.quads[i], two() ? `${cardLabel(card)}: ` : ''));
   $('compareBody').replaceChildren(...figures);
   setStatus('', 'info');
   $('compareDlg').showModal();

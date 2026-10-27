@@ -4,6 +4,7 @@
 import { homography, expandQuad, pointInConvex, bbox, rotateCorners } from './geometry.js';
 import { keyCandidates, fillSmallHoles, medianValue, hue, hueDistance } from './keying.js';
 import { scaledCanvas, pixels } from './files.js';
+import { FidelityError } from './rules.js';
 
 // Half-size copies of the design, so a small card on screen is sampled from a
 // level near its size instead of aliasing from the full file.
@@ -163,8 +164,20 @@ function drawCard(ctx, { card, quad, local, box, bw, bh, src, mask, alpha, medV 
     base[p + 2] = b + (gray - b) * t;
   }
 
-  // Warp: each card pixel looks up where it lands on the design (inverse homography, bilinear).
-  const level = pickLevel(levels, quad);
+  const light = (i) => {
+    if (!mask[i]) return 1;
+    const p = i * 4;
+    const factor = Math.min(1.15, Math.max(0.55, Math.max(src[p], src[p + 1], src[p + 2]) / medV));
+    return 1 + (factor - 1) * lighting;
+  };
+  warpDesign(base, bw, bh, local, levels, alpha, light, texture);
+  ctx.putImageData(region, box.x0, box.y0);
+}
+
+// Warp: each card pixel looks up where it lands on the design (inverse homography, bilinear),
+// times light(i) and the paper texture, blended in by alpha. base is the region's RGBA, written in place.
+function warpDesign(base, bw, bh, local, levels, alpha, light, texture) {
+  const level = pickLevel(levels, local);
   const lw = level.width, lh = level.height, L = dataOf(level);
   const H = homography(local, [[0, 0], [lw, 0], [lw, lh], [0, lh]]);
   const paperX = 1500 / lw, paperY = 2100 / lh;
@@ -182,12 +195,7 @@ function drawCard(ctx, { card, quad, local, box, bw, bh, src, mask, alpha, medV 
       const i00 = (y0 * lw + x0) * 4, i10 = i00 + 4, i01 = i00 + lw * 4, i11 = i01 + 4;
       const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
 
-      let m = 1;
-      if (mask[i]) {
-        const p = i * 4;
-        const factor = Math.min(1.15, Math.max(0.55, Math.max(src[p], src[p + 1], src[p + 2]) / medV));
-        m = 1 + (factor - 1) * lighting;
-      }
+      let m = light(i);
       if (texture > 0) m *= 1 + texture * paperNoise(su * paperX, sv * paperY);
 
       const p = i * 4;
@@ -197,7 +205,72 @@ function drawCard(ctx, { card, quad, local, box, bw, bh, src, mask, alpha, medV 
       }
     }
   }
-  ctx.putImageData(region, box.x0, box.y0);
+}
+
+// How much of each pixel the quad covers: distance inside its nearest edge, clamped to 0..1 (an anti-aliased edge).
+function quadCoverage(local, bw, bh) {
+  const cw = Math.sign((local[1][0] - local[0][0]) * (local[2][1] - local[0][1]) - (local[1][1] - local[0][1]) * (local[2][0] - local[0][0])) || 1;
+  const edges = local.map((p, j) => {
+    const q = local[(j + 1) % 4], len = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1;
+    return [p[0], p[1], (cw * (q[0] - p[0])) / len, (cw * (q[1] - p[1])) / len];
+  });
+  const alpha = new Float32Array(bw * bh);
+  for (let y = 0, i = 0; y < bh; y++) {
+    for (let x = 0; x < bw; x++, i++) {
+      let d = Infinity;
+      for (const [ex, ey, dx, dy] of edges) d = Math.min(d, dx * (y + 0.5 - ey) - dy * (x + 0.5 - ex));
+      alpha[i] = Math.min(1, Math.max(0, d + 0.5));
+    }
+  }
+  return alpha;
+}
+
+/**
+ * Draws a fixed layout (no scene): cards bottom to top, each with a soft shadow on what is below it.
+ * cards: [{ corners, levels, hero }] in output pixels, bottom first. The shadow darkens the cards
+ * underneath, so it is R5's lighting multiply and follows the Lighting slider.
+ * Returns { canvas, quads }.
+ */
+export function renderLayout({ outW, outH, cards, lighting, texture, background = '#3a3634' }) {
+  // R4: other cards may run off the frame, the hero may not.
+  for (const c of cards) {
+    if (c.hero && c.corners.some(([x, y]) => x < 0 || y < 0 || x > outW || y > outH)) {
+      throw new FidelityError('R4: the hero card would be cut by the frame. Check the layout.');
+    }
+  }
+  const out = document.createElement('canvas');
+  out.width = outW;
+  out.height = outH;
+  const ctx = out.getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = background;
+  ctx.fillRect(0, 0, outW, outH);
+  const unit = Math.hypot(outW, outH) / 1000;
+  for (const card of cards) {
+    const q = card.corners;
+    if (lighting > 0) {
+      // The shape is drawn off-canvas and only its shadow is shifted back, so no hard edge shows.
+      const far = outW + outH + 1000;
+      ctx.save();
+      // Strong enough to separate a card from a same-coloured one below it (front over back).
+      ctx.shadowColor = `rgba(0, 0, 0, ${0.7 * lighting})`;
+      ctx.shadowBlur = 12 * unit;
+      ctx.shadowOffsetX = far + 2.5 * unit;
+      ctx.shadowOffsetY = 4 * unit;
+      ctx.beginPath();
+      q.forEach(([x, y], j) => (j ? ctx.lineTo(x - far, y) : ctx.moveTo(x - far, y)));
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    const box = bbox(q, outW, outH);
+    const bw = box.x1 - box.x0, bh = box.y1 - box.y0;
+    if (bw <= 1 || bh <= 1) continue;
+    const region = ctx.getImageData(box.x0, box.y0, bw, bh);
+    const local = q.map(([x, y]) => [x - box.x0, y - box.y0]);
+    warpDesign(region.data, bw, bh, local, card.levels, quadCoverage(local, bw, bh), () => 1, texture);
+    ctx.putImageData(region, box.x0, box.y0);
+  }
+  return { canvas: out, quads: cards.map((c) => c.corners) };
 }
 
 // Un-warps the card back to a flat design-sized image, for Compare.

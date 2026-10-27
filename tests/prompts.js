@@ -13,7 +13,8 @@ const results = packs.map(({ slug, pack: raw }) => {
   const pack = parsePack(JSON.stringify(raw));
   const known = packColours(pack).filter((c) => c.rgb);
   const key = known.length ? chooseKey(known) : 'green';
-  const prompts = Object.keys(TYPES).map((type) => ({
+  // Layout shots (Pile) are drawn by the app: no Gemini prompt.
+  const prompts = Object.keys(TYPES).filter((type) => !TYPES[type].layout).map((type) => ({
     type,
     text: buildPrompt({
       type, surface: pack.surface || 'a plain surface', props: type === 'hand' ? [] : pack.props,

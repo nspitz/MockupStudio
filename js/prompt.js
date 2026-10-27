@@ -6,15 +6,13 @@ import { KEYS } from './keying.js';
 // Rich enough to set the theme's mood, without pulling the eye off the card.
 const MOOD = 'Rich, warm, true-to-life colour that sets the mood of the theme, not washed out, faded or pastel; gentle realistic shadows.';
 
-// keys: 1 = one blank in the auto-chosen key; 2 = fronts green, backs magenta (pile, hand).
+// keys: 1 = one blank in the auto-chosen key; 2 = fronts green, backs magenta (hand).
+// layout: drawn by the app from js/layouts.js, so there is no Gemini scene and no prompt.
 // backdrop: what the "Background" field fills in, and its default.
 export const TYPES = {
   pile: {
     label: 'Pile',
-    keys: 2,
-    template: `Overhead flat-lay product photo, portrait 3:4. Four blank 5x7 inch invitation cards are casually scattered and fanned out on {SURFACE}, at slightly different angles, overlapping only at their edges so all four corners of every card stay visible. {PROPS} Natural daylight. ${MOOD}`,
-    blank: 'Two of the cards are one flat, solid {GREEN} and two are one flat, solid {MAGENTA}, alternating so that no two cards of the same colour touch or overlap. Every card is that one colour edge to edge, with no text, pattern, border or texture on it.',
-    rules: 'Nothing covers or overlaps the cards except other cards.',
+    layout: 'pile',
   },
   main: {
     label: 'Main',
@@ -25,7 +23,7 @@ export const TYPES = {
     label: 'Hand',
     keys: 2,
     backdrop: { label: 'Wall', fallback: 'a plain warm off-white wall' },
-    template: `Product photo, portrait 3:4, of one hand holding two blank 5x7 inch invitation cards upright in front of {BACKDROP}. The back card is fanned out behind the front card, rotated slightly and offset up and to the side, so at least three of its corners are visible. The hand holds both cards from the lower edge, with only the thumb resting on the bottom margin of the front card. Natural window light, the wall slightly out of focus. ${MOOD}`,
+    template: `Product photo, landscape 4:3, of one hand holding two blank 5x7 inch invitation cards upright in front of {BACKDROP}. The two cards are fanned apart as wide as a natural one-handed hold allows: the back card is rotated about 20 degrees and shifted well up and to the side, so most of it shows beside the front card and all four of its corners are visible, while the two cards still overlap near the hand. The hand holds both cards from the lower edge, with only the thumb resting on the bottom margin of the front card. Natural window light, the wall slightly out of focus. ${MOOD}`,
     blank: 'The ENTIRE front card is one flat, solid {GREEN} and the ENTIRE back card is one flat, solid {MAGENTA}, each edge to edge, with no text, pattern, border or texture on them.',
     rules: 'Apart from the thumb and fingers holding them, nothing covers the cards.',
   },
@@ -53,6 +51,7 @@ const keyText = (k) => `pure chroma-key ${KEYS[k].label.toLowerCase()} colour ($
 // props: prompt phrases; colours: colour names; backdrop: '' means the type's fallback.
 export function buildPrompt({ type, surface, props, colours, key, backdrop = '' }) {
   const t = TYPES[type];
+  if (t.layout) return '';
   let propsText = 'Keep the surface simple, with no other props.';
   if (props.length) {
     // Props at the frame edges, partly cropped: they set the theme without staging a display around the card.

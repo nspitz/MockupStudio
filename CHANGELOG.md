@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-27 — Pile as a fixed layout, landscape Hand
+
+- Pile no longer uses a Gemini scene. The app draws 12 cards from the front and back designs to a fixed layout measured off an inspiration photo (`js/layouts.js`): fronts and backs alternating, edge cards running off the frame, the hero front on top, landscape 4:3 at 2000×1500. Each card casts a soft shadow on the cards below it, which follows the Lighting slider; paper texture as before. Picking Pile hides the prompt and needs no scene, the crop setting doesn't apply, and Compare checks the hero card.
+- Shadows strengthened after the first review (opacity 0.45 → 0.7 × Lighting, wider blur and offset), so a front lying over a back stands out. Hand prompt: the two cards are fanned as wide as a natural one-handed hold allows, with the back card turned about 20° and all four of its corners visible.
+- R4 gains its one exception: in the Pile, cards around the hero may run off the frame; the hero is always whole, and a layout that would cut it throws.
+- `compose.js`: the warp loop is shared by scene compositing and the new `renderLayout`. Hand prompt is now landscape 4:3. The Pile prompt is gone; `tests/prompts.html` builds four prompts.
+- `tests/batch.js` has a `layout` mode (no scene). New `tests/layout.html` overlays the layout on the inspiration photo for re-measuring.
+- Tests: 47 self-checks passing (7 new: layout size and cards, mixed fronts/backs and edge cards, full frame coverage, hero matches its design, shadow render, R4 hero check, no Pile prompt; the old Pile prompt check removed, the hand prompt check now wants landscape). Driven in the page too: Pile → designs → preview, Compare, back to Hand.
+
 ## 2026-10-26 — Prompt restyle, batch pages
 
 - Prompts: props now sit at the edges and corners of the frame, partly cropped so mostly only an edge or a corner shows, with open surface around the card. Every shot asks for rich, warm, true-to-life colour that's not washed out or pastel (it was "soft daylight").

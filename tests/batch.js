@@ -1,17 +1,19 @@
 // Runs a batch of real scenes through the app's own detection and compositing, headless.
-// tests/local/batch/manifest.json: [{ id, mode: 'single' | 'multi' | 'phone', cards?, scene, front, back? }],
+// tests/local/batch/manifest.json: [{ id, mode: 'single' | 'multi' | 'phone' | 'layout', cards?, scene?, layout?, front, back? }],
 // file names relative to tests/local/batch/. Writes [{ id, ok, log, jpeg }] into #result.
 //   single: one key card (Main, Stand), green or magenta, whichever is larger.
-//   multi:  green fronts + magenta backs (Hand, Pile).
+//   multi:  green fronts + magenta backs (Hand).
 //   phone:  one key screen; the whole design is fitted inside it, padded with its own edge colour.
+//   layout: no scene; the named layout (Pile) is drawn from the front and back designs.
 
 import { fitLongSide, scaledCanvas, pixels } from '../js/files.js';
 import { KEYS, detectRegion } from '../js/keying.js';
 import { findCorners } from '../js/corners.js';
 import { detectCards } from '../js/detect.js';
 import { quadSize } from '../js/geometry.js';
-import { designLevels, renderComposite } from '../js/compose.js';
+import { designLevels, renderComposite, renderLayout } from '../js/compose.js';
 import { cropFor, outputSize, toJpegBlob } from '../js/export.js';
+import { LAYOUTS, layoutSize, layoutCards } from '../js/layouts.js';
 
 const DETECT_LONG = 1000;
 const BASE = 'local/batch/';
@@ -97,7 +99,23 @@ function keyLeft(canvas) {
 
 const toDataUrl = (blob) => new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
 
+async function layoutJob(job) {
+  const layout = LAYOUTS[job.layout];
+  if (!layout) throw new Error(`unknown layout ${job.layout}`);
+  const designs = {};
+  for (const role of ['front', 'back']) {
+    const design = await loadCanvas(job[role]);
+    designs[role] = { design, levels: designLevels(design) };
+  }
+  const { w, h } = layoutSize(layout);
+  const r = renderLayout({ outW: w, outH: h, lighting: 0.8, texture: 0.12, cards: layoutCards(layout, w, h, designs) });
+  const blob = await toJpegBlob(r.canvas);
+  const lines = [`layout ${job.layout}, ${layout.cards.length} cards`, `export ${w}x${h}, ${(blob.size / 1e6).toFixed(2)} MB`];
+  return { id: job.id, ok: true, log: lines, cards: layout.cards.length, jpeg: await toDataUrl(blob) };
+}
+
 async function runJob(job) {
+  if (job.mode === 'layout') return layoutJob(job);
   const lines = [];
   const scene = await loadCanvas(job.scene);
   const front = await loadCanvas(job.front);

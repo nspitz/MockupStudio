@@ -5,7 +5,8 @@ import { homography, applyH, expandQuad, pointInConvex } from '../js/geometry.js
 import { KEYS, detectRegion } from '../js/keying.js';
 import { findCorners } from '../js/corners.js';
 import { detectCards } from '../js/detect.js';
-import { designLevels, renderComposite, flattenCard } from '../js/compose.js';
+import { designLevels, renderComposite, renderLayout, flattenCard } from '../js/compose.js';
+import { LAYOUTS, layoutSize, layoutCards } from '../js/layouts.js';
 import { cropFor, outputSize } from '../js/export.js';
 import { pixels } from '../js/files.js';
 import { NAMED, extractColours, chooseKey } from '../js/palette.js';
@@ -180,12 +181,11 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
   const party = buildPrompt({ ...base, type: 'stand', backdrop: 'cosy Christmas baby shower' });
   check('stand prompt uses the party', party.includes('a cosy Christmas baby shower softly blurred') && !party.includes('{'), party);
   check('stand prompt falls back to "party"', stand.includes('with a party softly blurred'), stand);
-  const pile = buildPrompt({ ...base, type: 'pile', key: 'magenta' });
-  check('pile prompt: two keys, corners, no same-colour touching', pile.includes('Four blank') && pile.includes('all four corners of every card')
-    && pile.includes('(#00FF00)') && pile.includes('(#FF00FF)') && pile.includes('no two cards of the same colour touch')
-    && pile.includes('open surface around the cards') && pile.includes('No other bright green or magenta'), pile);
+  check('pile has no Gemini prompt (the app lays it out)', buildPrompt({ ...base, type: 'pile' }) === '');
   const hand = buildPrompt({ ...base, type: 'hand', backdrop: '' });
-  check('hand prompt: front green, back magenta, wall fallback, no props', hand.includes('front card is one flat, solid pure chroma-key green')
+  check('hand prompt: landscape, fanned wide, front green, back magenta, wall fallback, no props', hand.includes('landscape 4:3')
+    && hand.includes('fanned apart as wide as a natural one-handed hold allows') && hand.includes('all four of its corners are visible')
+    && hand.includes('front card is one flat, solid pure chroma-key green')
     && hand.includes('back card is one flat, solid pure chroma-key magenta') && hand.includes('a plain warm off-white wall')
     && hand.includes('thumb') && !hand.includes('silk ribbon') && !hand.includes('{'), hand);
 }
@@ -306,7 +306,7 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
   }
 }
 
-// 12. Pile: four fanned cards, stacked green, magenta, green, magenta from the bottom. Each card
+// 12. Four fanned key cards, stacked green, magenta, green, magenta from the bottom. Each card
 // but the top one has a corner hidden under the next, and the edge hiding it is a long straight line.
 {
   const truth = [
@@ -324,7 +324,7 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
     x.fill();
   }
   const found = detectCards(pixels(c));
-  check('pile: 4 cards found, 2 fronts and 2 backs', found.cards.length === 4 && found.cards.filter((k) => k.role === 'front').length === 2,
+  check('four-card scene: 4 cards found, 2 fronts and 2 backs', found.cards.length === 4 && found.cards.filter((k) => k.role === 'front').length === 2,
     found.cards.map((k) => k.role).join(', '));
   // Match each truth card to the found card of the same role nearest its centre.
   const centre = (q) => [q.reduce((s, p) => s + p[0], 0) / 4, q.reduce((s, p) => s + p[1], 0) / 4];
@@ -333,7 +333,7 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
     const k = found.cards.filter((f) => f.role === role).sort((a, b) => dist(centre(a.corners), [cx, cy]) - dist(centre(b.corners), [cx, cy]))[0];
     return k ? Math.max(...k.corners.map((p, i) => dist(p, q[i]))) : Infinity;
   });
-  check('pile: every card within 4px, hidden corners included', errs.every((e) => e <= 4), errs.map((e) => `${e.toFixed(1)}px`).join(', '));
+  check('four-card scene: every card within 4px, hidden corners included', errs.every((e) => e <= 4), errs.map((e) => `${e.toFixed(1)}px`).join(', '));
 }
 
 // 13. Saved designs: a library file imports into IndexedDB, lists, loads back as images, and a
@@ -358,6 +358,49 @@ const rgbOf = (name) => NAMED.find((n) => n[0] === name).slice(1);
   let rejected = '';
   try { await importLibrary(new File(['{"format":"other"}'], 'x.json')); } catch (e) { rejected = e.message; }
   check('library: rejects a file that is not a library', /library file/.test(rejected), rejected);
+}
+
+// 14. Pile layout: cards cover the whole frame, the hero is whole and matches its design, and a
+// layout that would cut the hero throws (R4).
+{
+  const lay = LAYOUTS.pile;
+  const { w, h } = layoutSize(lay);
+  const backD = canvas(600, 840), bx = backD.getContext('2d');
+  bx.fillStyle = '#8a1c24'; bx.fillRect(0, 0, 600, 840);
+  bx.fillStyle = '#c4d4f0';
+  for (let i = 0; i < 6; i++) bx.fillRect(i * 100 + 40, 0, 24, 840);
+  const designs = { front: { design, levels }, back: { design: backD, levels: designLevels(backD) } };
+  const cards = layoutCards(lay, w, h, designs);
+  check('pile layout: 4:3 at 2000px, 12 cards, hero last and whole', w === 2000 && h === 1500 && cards.length === 12 && cards[11].hero
+    && cards[11].corners.every(([x, y]) => x >= 0 && y >= 0 && x <= w && y <= h), `${w}x${h}, ${cards.length} cards`);
+  check('pile layout: fronts and backs mixed, some cards run off the frame',
+    cards.filter((c) => c.role === 'back').length >= 4 && cards.some((c) => c.corners.some(([x, y]) => x < 0 || y < 0 || x > w || y > h)));
+
+  const r = renderLayout({ outW: w, outH: h, cards, lighting: 0, texture: 0, background: '#00ff00' });
+  const D = pixels(r.canvas).data;
+  let bare = 0;
+  for (let p = 0; p < D.length; p += 4) if (D[p + 1] > 200 && D[p] < 60 && D[p + 2] < 60) bare++;
+  check('pile layout: no background showing anywhere', bare === 0, `${bare} background pixels`);
+
+  const flat = flattenCard(r.canvas, r.quads[11], 600, 840);
+  const A = pixels(flat).data, B = pixels(design).data;
+  let sum = 0, n = 0;
+  for (let y = 6; y < 834; y++) {
+    for (let x = 6; x < 594; x++) {
+      const p = (y * 600 + x) * 4;
+      sum += Math.abs(A[p] - B[p]) + Math.abs(A[p + 1] - B[p + 1]) + Math.abs(A[p + 2] - B[p + 2]);
+      n += 3;
+    }
+  }
+  check('pile layout: hero matches its design edge to edge', sum / n < 6, `mean abs diff ${(sum / n).toFixed(2)}/255`);
+
+  const lit = renderLayout({ outW: w, outH: h, cards, lighting: 0.8, texture: 0.12 });
+  check('pile layout: default render with shadows', lit.canvas.width === w, `${lit.canvas.width}x${lit.canvas.height}`);
+
+  let threw = '';
+  const off = { ...lay, cards: lay.cards.map((c) => (c.hero ? { ...c, cx: 60 } : c)) };
+  try { renderLayout({ outW: w, outH: h, cards: layoutCards(off, w, h, designs), lighting: 0, texture: 0 }); } catch (e) { threw = e.message; }
+  check('R4: a layout that would cut the hero throws', /R4/.test(threw), threw);
 }
 
 const pass = results.every((r) => r.ok);

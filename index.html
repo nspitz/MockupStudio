@@ -34,7 +34,7 @@
         <label class="picker">
           <input type="file" id="backInput" accept="image/*">
           <span class="pick-title">Design (back)</span>
-          <span class="pick-name" id="backName">Only for Hand and Pile scenes</span>
+          <span class="pick-name" id="backName">Only for Hand and Pile</span>
         </label>
         <label class="picker">
           <input type="file" id="sceneInput" accept="image/*">
@@ -55,7 +55,7 @@
           <button id="applyPack" class="primary" type="button">Use this pack</button>
           <button id="clearPack" type="button" hidden>Clear pack</button>
         </div>
-        <p class="note">A pack sets the surface, props, party and wall for all five shots, and clears the props ticked below.</p>
+        <p class="note">A pack sets the surface, props, party and wall for every Gemini shot, and clears the props ticked below.</p>
       </details>
       <div class="seg wrap" id="typeSeg">
         <button data-type="pile">Pile</button>
@@ -88,16 +88,19 @@
           <div id="colourChips" class="chips"></div>
         </div>
       </div>
-      <div class="row">
-        <span class="label">Key colour</span>
-        <span id="keyNote" class="key-note"></span>
+      <p class="status" id="layoutNote" data-kind="ok" hidden>No Gemini scene needed: the app lays out the Pile from your front and back designs.</p>
+      <div id="promptBlock">
+        <div class="row">
+          <span class="label">Key colour</span>
+          <span id="keyNote" class="key-note"></span>
+        </div>
+        <textarea id="promptText" class="text prompt" rows="8" aria-label="Gemini prompt"></textarea>
+        <p class="note">You can edit the prompt here, but changing a setting above rewrites it.</p>
+        <div class="row buttons">
+          <button id="copyPrompt" class="primary" type="button">Copy Gemini prompt</button>
+        </div>
+        <p class="note">In Gemini, paste the prompt and attach your reference image if you have one. <strong>Never attach the design.</strong> Save the result and open it under <em>Scene</em> above.</p>
       </div>
-      <textarea id="promptText" class="text prompt" rows="8" aria-label="Gemini prompt"></textarea>
-      <p class="note">You can edit the prompt here, but changing a setting above rewrites it.</p>
-      <div class="row buttons">
-        <button id="copyPrompt" class="primary" type="button">Copy Gemini prompt</button>
-      </div>
-      <p class="note">In Gemini, paste the prompt and attach your reference image if you have one. <strong>Never attach the design.</strong> Save the result and open it under <em>Scene</em> above.</p>
     </section>
 
     <section class="card">
@@ -106,7 +109,7 @@
         <canvas id="stageCanvas"></canvas>
         <svg id="overlay" preserveAspectRatio="none"></svg>
         <canvas id="magnifier" width="150" height="150" hidden></canvas>
-        <p class="placeholder">Choose a scene to start.</p>
+        <p class="placeholder" id="placeholder">Choose a scene to start.</p>
       </div>
       <p class="status" id="status" role="status"></p>
       <p class="status" id="hint" data-kind="warn" hidden></p>

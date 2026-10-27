@@ -16,7 +16,8 @@ function make(tag, attrs = {}, text) {
   return e;
 }
 
-export function createPromptPanel() {
+// onType(type): called with the picked shot type, at start and on every change.
+export function createPromptPanel({ onType = () => {} } = {}) {
   const prefs = loadPrefs();
   let type = prefs.lastType in TYPES ? prefs.lastType : 'main';
   let designColours = [];
@@ -48,7 +49,9 @@ export function createPromptPanel() {
   function renderType() {
     for (const b of $('typeSeg').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.type === type));
     const t = TYPES[type];
-    $('propsBlock').hidden = type === 'hand';
+    $('propsBlock').hidden = type === 'hand' || !!t.layout;
+    for (const id of ['promptBlock', 'packBox']) $(id).hidden = !!t.layout;
+    $('layoutNote').hidden = !t.layout;
     $('backdropRow').hidden = !t.backdrop;
     if (t.backdrop) {
       $('backdropLabel').textContent = t.backdrop.label;
@@ -184,6 +187,7 @@ export function createPromptPanel() {
     type = prefs.lastType = t;
     persist();
     renderAll();
+    onType(type);
   });
 
   $('surface').addEventListener('change', (e) => {
@@ -256,6 +260,7 @@ export function createPromptPanel() {
 
   refreshColours();
   renderAll();
+  onType(type);
 
   return {
     usePack,

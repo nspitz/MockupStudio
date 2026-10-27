@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>LAYOUT RUNNING</title>
+  <style>body { margin: 0; } pre { font: 14px monospace; } img { max-width: 100%; display: block; }</style>
+  <script type="module" src="layout.js"></script>
+</head>
+<body>
+  <!-- Checks the Pile layout against the inspiration photo: tests/local/pile-inspo.jpg with every
+       card's outline drawn on top, then the template rendered from tests/local/pile-front.jpg + pile-back.jpg
+       (all git-ignored). Both land in #result as PNG/JPEG data URLs, for --dump-dom. -->
+  <pre id="out"></pre>
+  <div id="view"></div>
+  <pre id="result" hidden></pre>
+</body>
+</html>

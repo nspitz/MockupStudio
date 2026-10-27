@@ -199,7 +199,7 @@ button.ghost { border-color: transparent; background: transparent; color: var(--
 .text.prompt { width: 100%; margin-top: 14px; resize: vertical; font-size: 0.9rem; line-height: 1.45; }
 
 .seg.wrap { flex-wrap: wrap; }
-#propsBlock[hidden], .row[hidden] { display: none; }
+#propsBlock[hidden], #promptBlock[hidden], .pack[hidden], .row[hidden] { display: none; }
 
 .pack { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; }
 .pack summary { cursor: pointer; font-weight: 600; min-height: 34px; line-height: 34px; }
